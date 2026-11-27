@@ -7,15 +7,20 @@ import { INITIAL_PRODUCTS, PUROHITS, APARA_PEETAS } from '../constants';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
+const hashPassword = async (password: string): Promise<string> => {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const data = new TextEncoder().encode(`gp_salt_v1:${password}`);
+    const buf = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  return btoa(`gp_salt_v1:${password}`);
+};
+
 export const firebaseMock = {
   auth: {
     async signInWithGoogle(email: string): Promise<User> {
       await delay(500);
-      const role: User['role'] = email.toLowerCase().includes('admin')
-        ? 'admin'
-        : email.toLowerCase().includes('purohit')
-        ? 'purohit'
-        : 'user';
+      const role: User['role'] = email.toLowerCase().includes('purohit') ? 'purohit' : 'user';
 
       const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
       if (savedUsers[email]) {
@@ -26,8 +31,8 @@ export const firebaseMock = {
         id: `usr_${Date.now()}`,
         name: email.split('@')[0],
         email,
-        phone: '9949730175',
-        address: 'Madhuranagar, Gollagudem',
+        phone: '',
+        address: '',
         city: 'Khammam',
         pincode: '507002',
         role,
@@ -43,18 +48,17 @@ export const firebaseMock = {
     async register(data: RegistrationData): Promise<User> {
       await delay(400);
       const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
+      const normalizedEmail = data.email.trim().toLowerCase();
+      if (savedUsers[normalizedEmail]) {
+        throw new Error('An account with this email already exists. Please sign in.');
+      }
       const role: User['role'] =
-        data.role ||
-        (data.email.toLowerCase().includes('admin')
-          ? 'admin'
-          : data.email.toLowerCase().includes('purohit')
-          ? 'purohit'
-          : 'user');
+        data.role === 'purohit' ? 'purohit' : 'user';
 
       const user: User = {
         id: `usr_${Date.now()}`,
         name: data.name.trim(),
-        email: data.email.trim().toLowerCase(),
+        email: normalizedEmail,
         phone: data.phone.trim(),
         address: data.address.trim(),
         city: data.city.trim(),
@@ -62,8 +66,6 @@ export const firebaseMock = {
         role,
         preferredLanguage: data.preferredLanguage || 'en',
         profileImage: data.profileImage,
-        aadhaarLast4: data.aadhaarLast4,
-        aadhaarDocPreview: data.aadhaarDocPreview,
         kycVerified: data.kycVerified,
         kycRupeePaid: data.kycRupeePaid,
         kycCfOrderId: data.kycCfOrderId,
@@ -77,34 +79,44 @@ export const firebaseMock = {
         notifications: { email: true, sms: true }
       };
 
+      if (data.password) {
+        const passwords = JSON.parse(localStorage.getItem('gp_fb_passwords') || '{}');
+        passwords[normalizedEmail] = await hashPassword(data.password);
+        localStorage.setItem('gp_fb_passwords', JSON.stringify(passwords));
+      }
+
       savedUsers[user.email] = user;
       localStorage.setItem('gp_fb_users', JSON.stringify(savedUsers));
       return user;
     },
-    async login(email: string, phone?: string): Promise<User> {
+    async login(email: string, _phone?: string, password?: string): Promise<User> {
       await delay(400);
       const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
       const normalizedEmail = email.trim().toLowerCase();
 
-      if (savedUsers[normalizedEmail]) {
-        return savedUsers[normalizedEmail];
+      const existing = savedUsers[normalizedEmail];
+      if (!existing) {
+        throw new Error('No account found for this email. Please register first.');
       }
 
-      // If user logs in first time without registration, create default user but flag missing info
-      const role = normalizedEmail.includes('admin') ? 'admin' : 'user';
-      const user: User = {
-        id: `usr_${Date.now()}`,
-        name: normalizedEmail.split('@')[0],
-        email: normalizedEmail,
-        phone: phone || '',
-        address: '',
-        role,
-        createdAt: new Date().toISOString(),
-        notifications: { email: true, sms: true }
-      };
-      savedUsers[normalizedEmail] = user;
-      localStorage.setItem('gp_fb_users', JSON.stringify(savedUsers));
-      return user;
+      const passwords = JSON.parse(localStorage.getItem('gp_fb_passwords') || '{}');
+      const storedHash = passwords[normalizedEmail];
+      if (!password || !storedHash || (await hashPassword(password)) !== storedHash) {
+        throw new Error('Invalid email or password.');
+      }
+
+      return existing;
+    },
+    async changePassword(email: string, currentPassword: string, newPassword: string): Promise<void> {
+      await delay(300);
+      const normalizedEmail = email.trim().toLowerCase();
+      const passwords = JSON.parse(localStorage.getItem('gp_fb_passwords') || '{}');
+      const storedHash = passwords[normalizedEmail];
+      if (storedHash && (await hashPassword(currentPassword)) !== storedHash) {
+        throw new Error('Current password is incorrect.');
+      }
+      passwords[normalizedEmail] = await hashPassword(newPassword);
+      localStorage.setItem('gp_fb_passwords', JSON.stringify(passwords));
     },
     async updateUser(user: User): Promise<void> {
       await delay(300);

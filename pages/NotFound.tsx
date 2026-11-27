@@ -1,0 +1,31 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Home, Search } from 'lucide-react';
+
+export const NotFound: React.FC = () => {
+  return (
+    <div className="min-h-screen bg-cream flex items-center justify-center px-4 pt-28 pb-16">
+      <div className="max-w-lg w-full bg-white border border-gold/30 rounded-lg p-8 text-center shadow-md space-y-5">
+        <div className="font-cinzel text-5xl font-bold text-maroon">404</div>
+        <h1 className="font-serif text-2xl font-bold text-maroon">Page Not Found</h1>
+        <p className="text-sm text-text-md">
+          The page you are looking for does not exist or may have moved.
+        </p>
+        <div className="flex flex-wrap justify-center gap-3 pt-2">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 bg-maroon text-gold-pale px-5 py-2.5 text-xs font-cinzel font-bold uppercase tracking-wider rounded hover:bg-maroon-md transition-colors"
+          >
+            <Home size={15} /> Back to Home
+          </Link>
+          <Link
+            to="/purohits"
+            className="inline-flex items-center gap-2 border border-maroon text-maroon px-5 py-2.5 text-xs font-cinzel font-bold uppercase tracking-wider rounded hover:bg-maroon/5 transition-colors"
+          >
+            <Search size={15} /> Browse Purohits
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+};

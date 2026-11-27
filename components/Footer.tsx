@@ -134,7 +134,7 @@ export const Footer: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-2 flex-wrap justify-center">
-            {['UPI ₹11 Token', 'Razorpay', 'COD', 'Net Banking', 'Cards'].map(m => (
+            {['UPI ₹11 Token', 'Cashfree', 'COD', 'Net Banking', 'Cards'].map(m => (
               <span key={m} className="bg-cream/5 border border-gold/15 px-2 py-1 font-cinzel text-[0.5rem] tracking-widest uppercase text-gold-pale">
                 {m}
               </span>

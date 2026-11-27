@@ -107,7 +107,7 @@ export const Services: React.FC = () => {
             </div>
             <h2 className="font-cinzel text-2xl font-bold text-text-dk tracking-widest uppercase">{t('svcNadaswaramTitle')}</h2>
             <p className="font-telugu text-sm text-text-md mt-1">
-              {language === 'te' ? 'నాదస్వరం బృందాలు — ₹11 టోకెన్‌తో నిర్ధారించి నేరుగా మాట్లాడండి' : 'Confirm with ₹11 token & negotiate directly'}
+              {language === 'te' ? 'నాదస్వరం బృందాలు — WhatsApp ద్వారా నేరుగా మాట్లాడి బుక్ చేయండి' : 'Enquire on WhatsApp & negotiate directly with the troupe'}
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -159,7 +159,7 @@ export const Services: React.FC = () => {
 
       {/* ADDITIONAL SERVICES */}
       {comingSoonServices.map((svc, si) => (
-        <section key={svc.cat} className={`py-14 px-6 ${si % 2 === 0 ? 'bg-cream' : 'bg-ivory'} border-b border-gold/10`}>
+        <section id={`service-cat-${svc.cat}`} key={svc.cat} className={`py-14 px-6 ${si % 2 === 0 ? 'bg-cream' : 'bg-ivory'} border-b border-gold/10 scroll-mt-24`}>
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-10">
             <div className="flex-1">
               <div className="text-5xl mb-3">{svc.icon}</div>

@@ -49,6 +49,18 @@ export const Purohits: React.FC = () => {
       return false;
     }
   });
+  useEffect(() => {
+    if (!selectedPurohit) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedPurohit(null);
+        setConfirmedBooking(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedPurohit]);
+
   const dismissSplash = () => {
     try {
       sessionStorage.setItem('gp_purohits_splash_seen', '1');
@@ -154,6 +166,11 @@ export const Purohits: React.FC = () => {
     }
     if (!bookPincode || bookPincode.replace(/\D/g, '').length !== 6) {
       addToast('Please enter a valid 6-digit postal PIN code.', 'error');
+      return;
+    }
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (!bookDate || bookDate < todayStr) {
+      addToast('Please select today or a future ceremony date.', 'error');
       return;
     }
     if (!selectedPurohit) return;
@@ -432,7 +449,7 @@ export const Purohits: React.FC = () => {
         <div className="flex-1">
           <div className="flex justify-between items-center mb-6">
             <span className="font-cinzel text-xs tracking-widest uppercase text-text-md">
-              {t('mktShowing')} <strong className="text-maroon">{filtered.length}</strong> {t('navPurohits')}
+              {t('mktShowing')} <strong className="text-maroon">{filtered.length}</strong> {filtered.length === 1 ? (language === 'te' ? 'పురోహితుడు' : 'Purohit') : t('navPurohits')}
             </span>
           </div>
 
@@ -560,6 +577,8 @@ export const Purohits: React.FC = () => {
                 <p className="font-telugu text-xs text-cream/60 mt-0.5">{selectedPurohit.nameTe}</p>
               </div>
               <button
+                type="button"
+                aria-label="Close booking modal"
                 onClick={() => { setSelectedPurohit(null); setConfirmedBooking(null); }}
                 className="text-cream/60 hover:text-cream transition-colors"
               >
@@ -817,6 +836,7 @@ export const Purohits: React.FC = () => {
                     <label className="block text-xs font-semibold text-text-dk mb-1">Ceremony Date *</label>
                     <input
                       type="date"
+                      aria-label="Ceremony Date"
                       required
                       value={bookDate}
                       onChange={e => setBookDate(e.target.value)}
@@ -828,6 +848,7 @@ export const Purohits: React.FC = () => {
                     <label className="block text-xs font-semibold text-text-dk mb-1">Muhurtham Time *</label>
                     <input
                       type="time"
+                      aria-label="Muhurtham Time"
                       required
                       value={bookTime}
                       onChange={e => setBookTime(e.target.value)}

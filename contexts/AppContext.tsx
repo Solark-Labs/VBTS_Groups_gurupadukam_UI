@@ -23,10 +23,11 @@ interface AppContextType {
 
   // Auth
   user: User | null;
-  login: (email: string, phone?: string) => Promise<void>;
-  register: (data: RegistrationData) => Promise<void>;
+  login: (email: string, phone?: string, password?: string) => Promise<boolean>;
+  register: (data: RegistrationData) => Promise<boolean>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   isAdmin: boolean;
   isAuthLoading: boolean;
 
@@ -196,10 +197,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const t = useCallback((key: keyof TranslationKeys) => getTranslation(language, key), [language]);
 
   // --- Auth ---
-  const login = async (email: string, phone?: string) => {
+  const login = async (email: string, phone?: string, password?: string): Promise<boolean> => {
     setIsAuthLoading(true);
     try {
-      const existingUser = await firebaseMock.auth.login(email, phone);
+      const existingUser = await firebaseMock.auth.login(email, phone, password);
       setUser(existingUser);
       localStorage.setItem('gp_user', JSON.stringify(existingUser));
       if (existingUser.preferredLanguage === 'te' || existingUser.preferredLanguage === 'en') {
@@ -207,14 +208,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         localStorage.setItem('gp_lang', existingUser.preferredLanguage);
       }
       addToast(`Welcome back, ${existingUser.name}!`, 'success');
+      return true;
     } catch (error) {
-      addToast('Login failed. Please check your credentials.', 'error');
+      addToast(error instanceof Error ? error.message : 'Login failed. Please check your credentials.', 'error');
+      return false;
     } finally {
       setIsAuthLoading(false);
     }
   };
 
-  const register = async (data: RegistrationData) => {
+  const register = async (data: RegistrationData): Promise<boolean> => {
     setIsAuthLoading(true);
     try {
       const newUser = await firebaseMock.auth.register(data);
@@ -224,12 +227,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setLanguageState(newUser.preferredLanguage);
         localStorage.setItem('gp_lang', newUser.preferredLanguage);
       }
-      if (newUser.role === 'purohit' && newUser.kycVerified && newUser.aadhaarLast4 && newUser.kycCfPaymentId) {
+      if (newUser.role === 'purohit' && newUser.kycVerified && newUser.kycCfPaymentId) {
         syncPurohitKycToBackend({
           email: newUser.email,
           name: newUser.name,
           phone: newUser.phone,
-          aadhaarLast4: newUser.aadhaarLast4,
+          aadhaarLast4: '',
           kycCfOrderId: newUser.kycCfOrderId || '',
           kycCfPaymentId: newUser.kycCfPaymentId,
           readyToShowVerification: Boolean(newUser.readyToShowVerification),
@@ -237,8 +240,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
       }
       addToast(`Namaste ${newUser.name}, your account is registered!`, 'success');
+      return true;
     } catch (error) {
-      addToast('Registration failed. Please try again.', 'error');
+      addToast(error instanceof Error ? error.message : 'Registration failed. Please try again.', 'error');
+      return false;
     } finally {
       setIsAuthLoading(false);
     }
@@ -247,7 +252,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('gp_user');
+    setCart([]);
+    localStorage.removeItem('gp_cart');
+    setCartOpen(false);
     addToast('Logged out successfully.', 'info');
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      await firebaseMock.auth.changePassword(user.email, currentPassword, newPassword);
+      addToast('Password updated successfully.', 'success');
+      return true;
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Failed to update password.', 'error');
+      return false;
+    }
   };
 
   const updateProfile = async (data: Partial<User>) => {
@@ -1083,7 +1103,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       language, setLanguage, t,
-      user, login, register, logout, updateProfile, isAdmin, isAuthLoading,
+      user, login, register, logout, updateProfile, changePassword, isAdmin, isAuthLoading,
       cart, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, isCartOpen, setCartOpen,
       products, updateProduct, addProduct, deleteProduct, orders, placeOrder, updateOrderStatus,
       walletBalance, walletTransactions, debitWalletForBooking,

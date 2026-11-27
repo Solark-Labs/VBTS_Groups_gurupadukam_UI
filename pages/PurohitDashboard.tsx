@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
   AlertTriangle, CheckCircle2, Clock, MapPin, Navigation, Package,
   Phone, RefreshCw, ShieldAlert, ShieldCheck, BadgeCheck, Truck, UserCheck, ExternalLink, Sparkles, Camera, Upload, X
@@ -41,10 +42,18 @@ export const PurohitDashboard: React.FC = () => {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [selectedDetailBooking, setSelectedDetailBooking] = useState<Booking | null>(null);
   const [showVerificationCard, setShowVerificationCard] = useState(false);
-  const [kycAadhaarInput, setKycAadhaarInput] = useState('');
   const [pendingKycOrder, setPendingKycOrder] = useState<CashfreeOrderResponse | null>(null);
 
-  const activePurohit = purohits.find(p => p.id === activePurohitId) || purohits[0];
+  if (!user || (user.role !== 'purohit' && user.role !== 'admin')) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const matchedOwnPurohit = purohits.find(
+    p => p.name.toLowerCase() === user.name.toLowerCase() || (user.phone && p.phone?.includes(user.phone))
+  ) || purohits[0];
+  const activePurohit = user.role === 'admin'
+    ? (purohits.find(p => p.id === activePurohitId) || purohits[0])
+    : matchedOwnPurohit;
 
   // Bookings assigned to this purohit
   const myBookings = bookings.filter(b => b.purohitId === activePurohit.id);
@@ -121,25 +130,27 @@ export const PurohitDashboard: React.FC = () => {
             </p>
           </div>
 
-          <div className="bg-white/10 border border-gold/30 p-3 rounded-sm w-full md:w-auto">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gold-lt mb-1">
-              Switch Active Purohit View (Demo)
-            </label>
-            <select
-              value={activePurohitId}
-              onChange={e => setActivePurohitId(e.target.value)}
-              className="w-full md:w-64 px-3 py-1.5 text-xs font-semibold bg-white text-maroon rounded-sm focus:outline-none"
-            >
-              {purohits.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.location.split(',')[0]})
-                </option>
-              ))}
-            </select>
-          </div>
+          {user.role === 'admin' && (
+            <div className="bg-white/10 border border-gold/30 p-3 rounded-sm w-full md:w-auto">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gold-lt mb-1">
+                Switch Active Purohit View (Admin)
+              </label>
+              <select
+                value={activePurohitId}
+                onChange={e => setActivePurohitId(e.target.value)}
+                className="w-full md:w-64 px-3 py-1.5 text-xs font-semibold bg-white text-maroon rounded-sm focus:outline-none"
+              >
+                {purohits.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.location.split(',')[0]})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
-        {/* ─── PUROHIT VERIFICATION & KYC READINESS BAR (AADHAAR + ₹1 WITNESS) ─── */}
+        {/* ─── PUROHIT VERIFICATION & KYC READINESS BAR (₹1 WITNESS) ─── */}
         <div className="bg-white border-2 border-gold/40 p-4 sm:p-5 rounded-sm shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-full bg-green-100 border border-green-300 flex items-center justify-center shrink-0 text-green-700">
@@ -150,11 +161,11 @@ export const PurohitDashboard: React.FC = () => {
                 Purohit Verification Status
                 {(user?.kycVerified || activePurohit?.verified) ? (
                   <span className="text-[10px] bg-green-100 text-green-800 border border-green-300 px-2 py-0.5 rounded-full">
-                    ✓ Aadhaar (XXXX-XXXX-{user?.aadhaarLast4 || '4829'}) + ₹1 KYC Verified
+                    ✓ ₹1 Witness Verified
                   </span>
                 ) : (
                   <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full">
-                    Pending ₹1 Witness KYC
+                    Pending ₹1 Witness Verification
                   </span>
                 )}
               </div>
@@ -178,39 +189,30 @@ export const PurohitDashboard: React.FC = () => {
         {user?.role === 'purohit' && !user?.kycVerified && (
           <div className="bg-amber-50 border border-amber-300 p-4 rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div>
-              <div className="font-bold text-maroon">Complete Your Mandatory Purohit Aadhaar + ₹1 Witness KYC</div>
-              <p className="text-amber-950">Enter your 12-digit Aadhaar number and pay ₹1 via Cashfree to unlock your verified digital ID badge.</p>
+              <div className="font-bold text-maroon">Complete Your ₹1 Witness Verification</div>
+              <p className="text-amber-950">Pay ₹1 via Cashfree to verify your UPI/bank identity and unlock your digital partner badge.</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={14}
-                value={kycAadhaarInput}
-                onChange={e => setKycAadhaarInput(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                placeholder="12-digit Aadhaar"
-                className="px-3 py-2 border border-gold/40 bg-white rounded-sm font-mono text-xs w-40"
-              />
               <button
                 type="button"
                 onClick={async () => {
-                  if (kycAadhaarInput.replace(/\D/g, '').length !== 12) {
-                    addToast('Please enter a valid 12-digit Aadhaar number first.', 'error');
-                    return;
+                  try {
+                    const cfOrder = await createCashfreeTokenOrder({
+                      bookingRef: `KYC_DASH_${Date.now().toString().slice(-5)}`,
+                      customerName: user.name,
+                      customerPhone: user.phone || '9949730175',
+                      customerEmail: user.email,
+                      amount: 1,
+                      purpose: 'PUROHIT_KYC',
+                    });
+                    setPendingKycOrder(cfOrder);
+                  } catch (err) {
+                    addToast(err instanceof Error ? err.message : 'Unable to start verification payment.', 'error');
                   }
-                  const cfOrder = await createCashfreeTokenOrder({
-                    bookingRef: `KYC_DASH_${Date.now().toString().slice(-5)}`,
-                    customerName: user.name,
-                    customerPhone: user.phone || '9949730175',
-                    customerEmail: user.email,
-                    amount: 1,
-                    purpose: 'PUROHIT_KYC',
-                  });
-                  setPendingKycOrder(cfOrder);
                 }}
                 className="px-4 py-2 bg-green-700 text-white font-bold rounded-sm hover:bg-green-800"
               >
-                Verify Aadhaar + Pay ₹1 →
+                Pay ₹1 Verification →
               </button>
             </div>
           </div>
@@ -691,10 +693,9 @@ export const PurohitDashboard: React.FC = () => {
                 />
                 <div className="space-y-1">
                   <div className="inline-flex items-center gap-1 bg-green-100 text-green-800 px-2.5 py-0.5 rounded-full font-bold text-[11px]">
-                    <BadgeCheck size={13} /> Aadhaar + ₹1 Witness KYC Active
+                    <BadgeCheck size={13} /> ₹1 Witness Verification Active
                   </div>
-                  <div className="text-text-dk"><strong>Masked Aadhaar ID:</strong> <span className="font-mono">XXXX-XXXX-{user?.aadhaarLast4 || '4829'}</span></div>
-                  <div className="text-text-md"><strong>₹1 KYC Witness Ref:</strong> <span className="font-mono">{user?.kycCfPaymentId || 'CF_KYC_VERIFIED'}</span></div>
+                  <div className="text-text-md"><strong>₹1 Witness Ref:</strong> <span className="font-mono">{user?.kycCfPaymentId || 'VERIFIED'}</span></div>
                 </div>
               </div>
               <div className="bg-white border border-gold/30 rounded-lg p-3 space-y-1">
@@ -717,9 +718,7 @@ export const PurohitDashboard: React.FC = () => {
           customerPhone={user.phone || '9949730175'}
           description="₹1 Purohit KYC Witness Verification to GuruPadukam.com"
           onSuccess={async receipt => {
-            const last4 = kycAadhaarInput.replace(/\D/g, '').slice(-4);
             await updateProfile({
-              aadhaarLast4: last4,
               kycVerified: true,
               kycRupeePaid: true,
               kycCfOrderId: receipt.cfOrderId,
@@ -731,14 +730,14 @@ export const PurohitDashboard: React.FC = () => {
               email: user.email,
               name: user.name,
               phone: user.phone || '',
-              aadhaarLast4: last4,
+              aadhaarLast4: '',
               kycCfOrderId: receipt.cfOrderId,
               kycCfPaymentId: receipt.cfPaymentId,
               readyToShowVerification: true,
               vedicSampradaya: user.vedicSampradaya,
             });
             setPendingKycOrder(null);
-            addToast(`Aadhaar + ₹1 KYC Verified (${receipt.cfPaymentId})! Your Verification Badge is live.`, 'success');
+            addToast(`₹1 Witness Verification Complete (${receipt.cfPaymentId})! Your Verification Badge is live.`, 'success');
           }}
           onCancel={msg => {
             setPendingKycOrder(null);

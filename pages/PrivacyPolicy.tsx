@@ -61,9 +61,12 @@ export const PrivacyPolicy: React.FC = () => {
           </div>
 
           <div className="border-b border-gold/15 pb-6">
-            <h2 className="text-xl font-bold text-maroon font-serif mb-2">5. User Rights &amp; Data Deletion</h2>
+            <h2 className="text-xl font-bold text-maroon font-serif mb-2">5. DPDP Act, 2023 &amp; User Rights</h2>
+            <p className="text-text-md mb-2">
+              In accordance with India&apos;s <strong>Digital Personal Data Protection (DPDP) Act, 2023</strong>, you have the right to access, correct, update, or request erasure of your personal data, and to withdraw consent at any time.
+            </p>
             <p className="text-text-md">
-              You may review, edit, or request deletion of your personal data via your Profile page or by emailing{' '}
+              We do <strong>not</strong> collect, store, or process Aadhaar numbers or Aadhaar card images online. You may review, edit, or request deletion of your personal data via your Profile page or by emailing{' '}
               <a href={`mailto:${BRAND_CONTACT.email}`} className="text-maroon underline font-semibold">{BRAND_CONTACT.email}</a>.
             </p>
           </div>
@@ -73,10 +76,11 @@ export const PrivacyPolicy: React.FC = () => {
               <Phone size={18} className="text-gold" /> 6. Contact &amp; Grievance Officer
             </h2>
             <div className="bg-cream p-4 rounded border border-gold/30 text-xs space-y-1">
+              <p><strong>Grievance Officer:</strong> Operations &amp; Compliance Lead, {BRAND_CONTACT.businessName}</p>
               <p><strong>Business Name:</strong> {BRAND_CONTACT.businessName} ({BRAND_CONTACT.legalEntityNote})</p>
               <p><strong>Address:</strong> {BRAND_CONTACT.address}</p>
               <p><strong>Phone / WhatsApp:</strong> {BRAND_CONTACT.phoneDisplay}</p>
-              <p><strong>Email:</strong> {BRAND_CONTACT.email}</p>
+              <p><strong>Email:</strong> {BRAND_CONTACT.email} (Response within 48 hours)</p>
             </div>
           </div>
 

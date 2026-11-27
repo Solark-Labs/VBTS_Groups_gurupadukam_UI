@@ -25,7 +25,7 @@ type ProfileTab =
 
 export const Profile: React.FC = () => {
   const {
-    user, updateProfile, isAuthLoading, addToast,
+    user, updateProfile, changePassword, isAuthLoading, addToast,
     language, setLanguage, t,
     bookings, aparaBookings, orders,
     walletBalance, walletTransactions,
@@ -154,10 +154,12 @@ export const Profile: React.FC = () => {
       addToast('Password must be at least 6 characters.', 'error');
       return;
     }
-    addToast('Password updated successfully.', 'success');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    const ok = await changePassword(currentPassword, newPassword);
+    if (ok) {
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
   };
 
   const currentLangMeta = getLanguageMeta(language);
@@ -873,8 +875,10 @@ export const Profile: React.FC = () => {
 
                 <div className="max-w-md space-y-5">
                   <div>
-                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Current Password</label>
+                    <label htmlFor="profile-current-password" className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Current Password</label>
                     <input
+                      id="profile-current-password"
+                      aria-label="Current Password"
                       type="password"
                       value={currentPassword}
                       onChange={e => setCurrentPassword(e.target.value)}
@@ -883,8 +887,10 @@ export const Profile: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">New Password</label>
+                    <label htmlFor="profile-new-password" className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">New Password</label>
                     <input
+                      id="profile-new-password"
+                      aria-label="New Password"
                       type="password"
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
@@ -893,8 +899,10 @@ export const Profile: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Confirm New Password</label>
+                    <label htmlFor="profile-confirm-password" className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Confirm New Password</label>
                     <input
+                      id="profile-confirm-password"
+                      aria-label="Confirm New Password"
                       type="password"
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}

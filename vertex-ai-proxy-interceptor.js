@@ -112,8 +112,8 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            // Add a random header to identify these proxied requests on the Node.js backend.
-            'X-App-Proxy': 'pWpxsCHQFOoD1lnp_kGw0xupWSnHAQsM',
+            // Do not hardcode secrets in client bundles; configure via runtime env/session
+            ...(window.__GP_PROXY_KEY__ ? { 'X-App-Proxy': window.__GP_PROXY_KEY__ } : {}),
           },
           body: JSON.stringify(requestDetails),
         };

@@ -29,6 +29,20 @@ export const SplashOverlay: React.FC<SplashOverlayProps> = ({
   autoDismissMs,
 }) => {
   useEffect(() => {
+    if (!visible) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onDismiss();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [visible, onDismiss]);
+
+  useEffect(() => {
     if (!visible || !autoDismissMs) return;
     const timer = window.setTimeout(() => {
       onDismiss();

@@ -10,11 +10,11 @@ import { CashfreeOrderResponse, createCashfreeTokenOrder } from '../services/pay
 import { CashfreeCheckoutModal } from '../components/CashfreeCheckoutModal';
 
 export const Login: React.FC = () => {
-  const { login, register, isAuthLoading, language, setLanguage, addToast, t } = useAppContext();
+  const { user, logout, login, register, isAuthLoading, language, setLanguage, addToast, t } = useAppContext();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<'login' | 'register'>('register');
-  const [role, setRole] = useState<'user' | 'purohit' | 'admin'>('user');
+  const [role, setRole] = useState<'user' | 'purohit'>('user');
 
   // Login states
   const [loginEmail, setLoginEmail] = useState('');
@@ -35,9 +35,7 @@ export const Login: React.FC = () => {
   const [devoteePolicyAgreed, setDevoteePolicyAgreed] = useState(false);
   const [purohitPolicyAgreed, setPurohitPolicyAgreed] = useState(false);
 
-  // Purohit Mandatory KYC States (Aadhaar ID + ₹1 Witness Verification)
-  const [aadhaarNumber, setAadhaarNumber] = useState('');
-  const [aadhaarDocPreview, setAadhaarDocPreview] = useState<string | undefined>(undefined);
+  // Purohit Onboarding States (Vedic Credentials + ₹1 Witness Verification; no Aadhaar collection)
   const [vedicSampradaya, setVedicSampradaya] = useState('');
   const [experienceYears, setExperienceYears] = useState<string>('5');
   const [readyToShowId, setReadyToShowId] = useState(false);
@@ -57,35 +55,9 @@ export const Login: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleAadhaarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      addToast('Please upload an Aadhaar card image under 2 MB.', 'error');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') setAadhaarDocPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const formatAadhaar = (val: string) => {
-    const digits = val.replace(/\D/g, '').slice(0, 12);
-    return digits.replace(/(\d{4})(?=\d)/g, '$1 ');
-  };
-
-  const cleanAadhaarDigits = aadhaarNumber.replace(/\D/g, '');
-  const isAadhaarValid = cleanAadhaarDigits.length === 12 && Boolean(aadhaarDocPreview);
-
   const startPurohitKycRupeePay = async () => {
     if (!regName.trim() || regPhone.replace(/\D/g, '').length < 10) {
       addToast('Enter your Full Legal Name and 10-digit Mobile Number before ₹1 KYC payment.', 'error');
-      return;
-    }
-    if (!isAadhaarValid) {
-      addToast('Enter your 12-digit Aadhaar Number and upload Aadhaar ID image first.', 'error');
       return;
     }
     setStartingKycPay(true);
@@ -99,6 +71,8 @@ export const Login: React.FC = () => {
         purpose: 'PUROHIT_KYC',
       });
       setPendingKycOrder(cfOrder);
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Unable to start ₹1 verification payment.', 'error');
     } finally {
       setStartingKycPay(false);
     }
@@ -106,29 +80,25 @@ export const Login: React.FC = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginEmail) return;
+    if (!loginEmail || !loginPassword) return;
 
-    const finalEmail =
-      role === 'admin' && !loginEmail.includes('admin')
-        ? `admin_${loginEmail}`
-        : role === 'purohit' && !loginEmail.includes('purohit')
-        ? `purohit_${loginEmail}`
-        : loginEmail;
-
-    await login(finalEmail);
-    navigate(role === 'admin' ? '/admin' : role === 'purohit' ? '/purohit-dashboard' : '/');
+    const ok = await login(loginEmail.trim(), undefined, loginPassword);
+    if (ok) {
+      navigate(role === 'purohit' ? '/purohit-dashboard' : '/');
+    }
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (regPassword.length < 6) {
+      addToast('Password must be at least 6 characters long.', 'error');
+      return;
+    }
+
     if (role === 'purohit') {
       if (!purohitPolicyAgreed || !readyToShowId) {
         addToast('Please accept the Purohit Code of Conduct and confirm readiness to show verification ID.', 'error');
-        return;
-      }
-      if (!isAadhaarValid) {
-        addToast('Purohit Registration requires 12-digit Aadhaar ID number + Aadhaar document upload.', 'error');
         return;
       }
       if (!kycRupeeReceipt) {
@@ -140,20 +110,19 @@ export const Login: React.FC = () => {
       return;
     }
 
-    await register({
+    const ok = await register({
       name: regName,
       email: regEmail,
       phone: regPhone,
       address: regAddress,
       city: regCity,
       pincode: regPincode,
+      password: regPassword,
       role,
       preferredLanguage: regLanguage,
       profileImage: regProfileImage,
       ...(role === 'purohit' && kycRupeeReceipt
         ? {
-            aadhaarLast4: cleanAadhaarDigits.slice(-4),
-            aadhaarDocPreview,
             kycVerified: true,
             kycRupeePaid: true,
             kycCfOrderId: kycRupeeReceipt.cfOrderId,
@@ -169,53 +138,46 @@ export const Login: React.FC = () => {
           }),
     });
 
-    navigate(role === 'admin' ? '/admin' : role === 'purohit' ? '/purohit-dashboard' : '/');
-  };
-
-  const handleQuickDemo = async (demoRole: 'user' | 'purohit' | 'admin') => {
-    if (demoRole === 'admin') {
-      await register({
-        name: 'Vedic Administrator',
-        email: 'admin@gurupadukam.com',
-        phone: '9949730175',
-        address: 'Madhuranagar, Gollagudem',
-        city: 'Khammam',
-        pincode: '507002',
-        role: 'admin',
-      });
-      navigate('/admin');
-    } else if (demoRole === 'purohit') {
-      await register({
-        name: 'Brahmasri Subrahmanyam Sharma',
-        email: 'purohit@gurupadukam.com',
-        phone: '9949730175',
-        address: 'Madhuranagar Temple Lane',
-        city: 'Khammam',
-        pincode: '507002',
-        role: 'purohit',
-        aadhaarLast4: '4829',
-        kycVerified: true,
-        kycRupeePaid: true,
-        kycCfPaymentId: 'CF_KYC_DEMO_1RUPEE',
-        kycVerifiedAt: new Date().toISOString(),
-        readyToShowVerification: true,
-        vedicSampradaya: 'Krishna Yajurveda',
-        experienceYears: 25,
-      });
-      navigate('/purohit-dashboard');
-    } else {
-      await register({
-        name: 'Devotee Family',
-        email: 'devotee@gurupadukam.com',
-        phone: '9949730175',
-        address: 'Near Temple, Madhuranagar',
-        city: 'Khammam',
-        pincode: '507002',
-        role: 'user',
-      });
-      navigate('/');
+    if (ok) {
+      navigate(role === 'purohit' ? '/purohit-dashboard' : '/');
     }
   };
+
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-24 bg-gradient-to-br from-maroon-dk via-maroon to-maroon-dk pt-[110px]">
+        <div className="max-w-md w-full bg-cream p-8 rounded-lg border border-gold/40 shadow-2xl text-center space-y-4">
+          <img src="/logo.png" alt="Guru Padukam" className="w-16 h-16 mx-auto rounded-full border-2 border-gold/60 bg-cream object-cover p-0.5" />
+          <h1 className="font-serif text-2xl font-bold text-maroon">Already Signed In</h1>
+          <p className="text-sm text-text-md">
+            You are signed in as <strong>{user.name}</strong> ({user.email}).
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <Link to="/profile" className="py-2.5 px-4 bg-maroon text-gold-pale font-bold text-xs uppercase tracking-wider rounded hover:bg-maroon-md">
+              Go to Profile
+            </Link>
+            {user.role === 'purohit' && (
+              <Link to="/purohit-dashboard" className="py-2.5 px-4 border border-maroon text-maroon font-bold text-xs uppercase tracking-wider rounded hover:bg-maroon/5">
+                Open Purohit Portal
+              </Link>
+            )}
+            {user.role === 'admin' && (
+              <Link to="/admin" className="py-2.5 px-4 border border-maroon text-maroon font-bold text-xs uppercase tracking-wider rounded hover:bg-maroon/5">
+                Open Admin Dashboard
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={logout}
+              className="py-2.5 px-4 border border-gold/40 text-text-md font-bold text-xs uppercase tracking-wider rounded hover:bg-gold/10"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative flex items-center justify-center px-4 py-24 bg-gradient-to-br from-maroon-dk via-maroon to-maroon-dk overflow-hidden pt-[110px]">
@@ -261,11 +223,10 @@ export const Login: React.FC = () => {
         </div>
 
         {/* Role Selector */}
-        <div className="grid grid-cols-3 gap-2 mb-6 text-xs font-semibold">
+        <div className="grid grid-cols-2 gap-2 mb-6 text-xs font-semibold">
           {([
             { id: 'user', title: isTe ? 'భక్తులు / కుటుంబం' : 'Devotee / Family', sub: 'Book @ ₹11' },
             { id: 'purohit', title: isTe ? 'పురోహితులు / పీఠం' : 'Purohit / Peeta', sub: 'Aadhaar + ₹1 KYC' },
-            { id: 'admin', title: 'Platform Admin', sub: 'Operations' },
           ] as const).map(item => (
             <button
               key={item.id}
@@ -510,48 +471,12 @@ export const Login: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Step 1: Aadhaar Verification */}
-                <div className="bg-white border border-gold/30 rounded-md p-3 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-maroon flex items-center gap-1.5">
-                      <BadgeCheck size={14} className="text-gold-dk" /> Step 1: Aadhaar ID Verification
-                    </span>
-                    {isAadhaarValid && (
-                      <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-                        ✓ Ready (XXXX-XXXX-{cleanAadhaarDigits.slice(-4)})
-                      </span>
-                    )}
+                {/* Purohit Onboarding Notice (No Aadhaar collection in browser) */}
+                <div className="bg-white border border-gold/30 rounded-md p-3 text-[11px] text-text-md">
+                  <div className="font-bold text-maroon flex items-center gap-1.5 mb-1">
+                    <BadgeCheck size={14} className="text-gold-dk" /> Step 1: Vedic Credential Verification
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center">
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase text-text-md mb-1">
-                        12-Digit Aadhaar Number *
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={aadhaarNumber}
-                        onChange={e => setAadhaarNumber(formatAadhaar(e.target.value))}
-                        placeholder="XXXX XXXX XXXX"
-                        className="w-full px-3 py-2 text-xs font-mono border border-gold/40 bg-cream/30 rounded focus:outline-none focus:border-maroon"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase text-text-md mb-1">
-                        Upload Aadhaar ID Card Image *
-                      </label>
-                      <label className="cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 bg-cream border border-gold/40 rounded text-xs font-bold text-maroon hover:bg-gold/15">
-                        <Upload size={13} />
-                        {aadhaarDocPreview ? 'Change Aadhaar File ✓' : 'Upload Aadhaar Photo'}
-                        <input type="file" accept="image/*" onChange={handleAadhaarUpload} className="hidden" />
-                      </label>
-                    </div>
-                  </div>
-                  {aadhaarDocPreview && (
-                    <div className="flex items-center gap-2 text-[11px] text-green-800 bg-green-50 border border-green-200 px-2.5 py-1.5 rounded">
-                      <FileCheck size={14} /> Aadhaar card preview attached (only masked last 4 digits shared on verification badge).
-                    </div>
-                  )}
+                  We do not collect or store Aadhaar numbers or ID photos online. Keep your original government ID ready for in-person verification when requested by devotees or our operations team.
                 </div>
 
                 {/* Step 2: ₹1 KYC Witness Payment */}
@@ -588,7 +513,7 @@ export const Login: React.FC = () => {
                     Purohit Partner Policies (Separate From Devotee Policies)
                   </div>
                   <ul className="list-disc pl-4 space-y-1 text-text-md">
-                    <li><strong>Always Ready to Show Verification:</strong> Keep your Aadhaar &amp; Guru Padukam digital KYC badge ready for verification by devotees or platform admins at any ceremony.</li>
+                    <li><strong>Always Ready to Show Verification:</strong> Keep your Guru Padukam digital badge and valid government ID ready for verification by devotees or platform admins at any ceremony.</li>
                     <li><strong>Direct Contact &amp; Muhurtham Duty:</strong> Call the devotee after receiving a ₹11 token, finalize Nakshatram/Muhurtham, and record any direct advance transparently.</li>
                     <li><strong>Strict Calendar Discipline:</strong> Cancel prior to the ceremony only with a valid reason so ₹11 returns to the devotee wallet, or trigger Locality Emergency Handoff.</li>
                   </ul>
@@ -599,7 +524,7 @@ export const Login: React.FC = () => {
                       onChange={e => setReadyToShowId(e.target.checked)}
                       className="mt-0.5 accent-maroon"
                     />
-                    <span>I confirm my Aadhaar KYC is genuine and I am always ready to show my verification ID at ceremonies.</span>
+                    <span>I confirm my Vedic credentials are genuine and I am always ready to show my verification ID at ceremonies.</span>
                   </label>
                   <label className="flex items-start gap-2 cursor-pointer font-medium text-text-dk">
                     <input
@@ -624,7 +549,7 @@ export const Login: React.FC = () => {
                 </div>
                 <ul className="list-disc pl-4 space-y-1 text-[11px] text-text-md">
                   <li><strong>₹11 Online Token Only:</strong> Direct ceremony Dakshina/advance is negotiated directly with your Purohit and acknowledged on your booking card.</li>
-                  <li><strong>Zero-Loss Swaps &amp; Cancellation Windows:</strong> Free date swap (`≥3 days` standard / `≥10 days` major rituals). Purohit declines auto-credit `₹11` to your Wallet. Same-day or immediate bookings follow direct Purohit rules.</li>
+                  <li><strong>Zero-Loss Swaps &amp; Cancellation Windows:</strong> Free date swap (≥3 days standard / ≥10 days major rituals). Purohit declines auto-credit ₹11 to your Wallet. Same-day or immediate bookings follow direct Purohit rules.</li>
                   <li><strong>Partner Store Orders:</strong> Marketplace items are fulfilled by partner stores; Guru Padukam Support speaks directly with merchants on your behalf if issues occur.</li>
                 </ul>
                 <label className="flex items-start gap-2 cursor-pointer pt-1 text-[11px] text-text-dk">
@@ -673,7 +598,7 @@ export const Login: React.FC = () => {
                   required
                   value={loginEmail}
                   onChange={e => setLoginEmail(e.target.value)}
-                  placeholder={role === 'admin' ? 'admin@gurupadukam.com' : role === 'purohit' ? 'purohit@gurupadukam.com' : 'devotee@example.com'}
+                  placeholder={role === 'purohit' ? 'purohit@gurupadukam.com' : 'devotee@example.com'}
                   className="w-full pl-9 pr-3 py-2.5 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                 />
               </div>
@@ -703,38 +628,10 @@ export const Login: React.FC = () => {
             >
               {isAuthLoading
                 ? <Loader2 className="animate-spin" size={16} />
-                : `Sign In as ${role === 'admin' ? 'Administrator' : role === 'purohit' ? 'Purohit Partner' : 'Devotee'}`}
+                : `Sign In as ${role === 'purohit' ? 'Purohit Partner' : 'Devotee'}`}
             </button>
           </form>
         )}
-
-        {/* Quick Demo Access */}
-        <div className="mt-8 pt-6 border-t border-gold/20 text-center">
-          <p className="text-xs text-text-lt mb-3">Quick One-Click Demo Access:</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickDemo('user')}
-              className="py-2 px-3 border border-gold/40 bg-white hover:bg-gold/10 text-maroon text-xs font-semibold rounded transition-colors"
-            >
-              Demo Devotee
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickDemo('purohit')}
-              className="py-2 px-3 border border-gold/40 bg-white hover:bg-gold/10 text-maroon text-xs font-semibold rounded transition-colors"
-            >
-              Demo Verified Purohit
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickDemo('admin')}
-              className="py-2 px-3 border border-gold/40 bg-white hover:bg-gold/10 text-maroon text-xs font-semibold rounded transition-colors"
-            >
-              Demo Admin
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* ₹1 KYC Witness Payment Cashfree Modal */}

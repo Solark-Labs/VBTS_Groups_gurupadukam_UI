@@ -31,6 +31,8 @@ export const TrackOrder: React.FC = () => {
   } = useAppContext();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [phoneQuery, setPhoneQuery] = useState('');
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [matchedOrders, setMatchedOrders] = useState<Order[]>([]);
   const [matchedBookings, setMatchedBookings] = useState<Booking[]>([]);
@@ -51,25 +53,26 @@ export const TrackOrder: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const raw = searchQuery.trim().toLowerCase();
-    if (!raw) return;
-    const digits = raw.replace(/\D/g, '');
+    const rawId = searchQuery.trim().toLowerCase();
+    const digits = phoneQuery.replace(/\D/g, '');
+    if (!rawId || digits.length < 10) {
+      const msg = 'Please enter both your Booking/Order ID and 10-digit mobile number to track.';
+      setSearchError(msg);
+      addToast(msg, 'error');
+      return;
+    }
+    setSearchError(null);
     setHasSearched(true);
 
+    const last10 = digits.slice(-10);
     const ord = orders.filter(
-      o =>
-        o.id.toLowerCase() === raw ||
-        (digits.length >= 10 && o.userPhone.replace(/\D/g, '').endsWith(digits.slice(-10)))
+      o => o.id.toLowerCase() === rawId && o.userPhone.replace(/\D/g, '').endsWith(last10)
     );
     const bkg = bookings.filter(
-      b =>
-        b.id.toLowerCase() === raw ||
-        (digits.length >= 10 && b.userPhone.replace(/\D/g, '').endsWith(digits.slice(-10)))
+      b => b.id.toLowerCase() === rawId && b.userPhone.replace(/\D/g, '').endsWith(last10)
     );
     const apr = aparaBookings.filter(
-      a =>
-        a.id.toLowerCase() === raw ||
-        (digits.length >= 10 && a.userPhone.replace(/\D/g, '').endsWith(digits.slice(-10)))
+      a => a.id.toLowerCase() === rawId && a.userPhone.replace(/\D/g, '').endsWith(last10)
     );
 
     setMatchedOrders(ord);
@@ -108,11 +111,12 @@ export const TrackOrder: React.FC = () => {
     ? tickets.filter(t => t.userPhone === user.phone || user.role === 'admin')
     : hasSearched
       ? tickets.filter(t => {
-        const digits = searchQuery.replace(/\D/g, '');
+        const digits = phoneQuery.replace(/\D/g, '');
         return (
-          t.id.toLowerCase() === searchQuery.trim().toLowerCase() ||
-          t.bookingId?.toLowerCase() === searchQuery.trim().toLowerCase() ||
-          (digits.length >= 10 && t.userPhone.replace(/\D/g, '').endsWith(digits.slice(-10)))
+          (t.id.toLowerCase() === searchQuery.trim().toLowerCase() ||
+            t.bookingId?.toLowerCase() === searchQuery.trim().toLowerCase()) &&
+          digits.length >= 10 &&
+          t.userPhone.replace(/\D/g, '').endsWith(digits.slice(-10))
         );
       })
       : [];
@@ -146,20 +150,34 @@ export const TrackOrder: React.FC = () => {
           </p>
         </div>
 
-        <form onSubmit={handleSearch} className="flex gap-2 mb-10 max-w-2xl mx-auto">
-          <input
-            type="text"
-            placeholder={t('trackPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 px-4 py-3 border border-gold/30 bg-white focus:outline-none focus:border-maroon font-cinzel text-sm shadow-sm"
-          />
-          <button
-            type="submit"
-            className="bg-maroon text-gold-pale px-6 py-3 clip-btn hover:bg-maroon-md transition-colors flex items-center gap-2 font-cinzel tracking-widest uppercase text-sm shadow-md"
-          >
-            <Search size={18} /> {t('trackBtn')}
-          </button>
+        <form onSubmit={handleSearch} className="mb-10 max-w-2xl mx-auto space-y-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              aria-label="Booking or Order ID"
+              placeholder="Booking / Order ID (e.g. ORD123456)"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setSearchError(null); }}
+              className="flex-1 px-4 py-3 border border-gold/30 bg-white focus:outline-none focus:border-maroon font-cinzel text-sm shadow-sm"
+            />
+            <input
+              type="tel"
+              aria-label="10-digit Mobile Number"
+              placeholder="10-digit Mobile Number"
+              value={phoneQuery}
+              onChange={(e) => { setPhoneQuery(e.target.value.replace(/\D/g, '').slice(0, 10)); setSearchError(null); }}
+              className="sm:w-52 px-4 py-3 border border-gold/30 bg-white focus:outline-none focus:border-maroon font-cinzel text-sm shadow-sm"
+            />
+            <button
+              type="submit"
+              className="bg-maroon text-gold-pale px-6 py-3 clip-btn hover:bg-maroon-md transition-colors flex items-center justify-center gap-2 font-cinzel tracking-widest uppercase text-sm shadow-md"
+            >
+              <Search size={18} /> {t('trackBtn')}
+            </button>
+          </div>
+          {searchError && (
+            <p className="text-xs text-red-700 font-medium text-center">{searchError}</p>
+          )}
         </form>
 
         {hasSearched && displayOrders.length === 0 && displayBookings.length === 0 && displayApara.length === 0 && (

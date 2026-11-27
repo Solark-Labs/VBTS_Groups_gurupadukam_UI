@@ -143,11 +143,23 @@ export const Apara: React.FC = () => {
         foodFilter === 'all' ||
         foodFilter === 'without-food' ||
         (foodFilter === 'with-food' && p.supportsFoodPackage);
-      const matchDist = p.distanceKm <= maxDistanceKm;
+      const matchDist = modeFilter === 'online' || p.distanceKm <= maxDistanceKm;
       return matchCeremony && matchMode && matchFood && matchDist;
       })
       .sort((a, b) => (sortBy === 'distance' ? a.distanceKm - b.distanceKm : b.rating - a.rating));
   }, [aparaPeetas, userCoords, ceremonyFilter, modeFilter, foodFilter, maxDistanceKm, sortBy]);
+
+  useEffect(() => {
+    if (!selectedPeeta) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedPeeta(null);
+        setConfirmedBooking(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedPeeta]);
 
   const openBookingModal = (peeta: AparaPeeta) => {
     setSelectedPeeta(peeta);
@@ -155,7 +167,9 @@ export const Apara: React.FC = () => {
     if (peeta.groupOptions.length > 0 && !peeta.groupOptions.includes(purohitGroup)) {
       setPurohitGroup(peeta.groupOptions[0]);
     }
-    if (!peeta.supportsHomeService && peeta.supportsVenueVisit) {
+    if (modeFilter === 'online' && peeta.supportsOnline) {
+      setRitualMode('online');
+    } else if (!peeta.supportsHomeService && peeta.supportsVenueVisit) {
       setRitualMode('offline-venue');
     } else {
       setRitualMode('offline-home');

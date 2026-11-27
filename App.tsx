@@ -26,6 +26,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 import { ShippingPolicy } from './pages/ShippingPolicy';
 import { ReturnPolicy } from './pages/ReturnPolicy';
+import { NotFound } from './pages/NotFound';
 
 const BrandSplashScreen: React.FC = () => {
   const { language } = useAppContext();
@@ -78,9 +79,34 @@ const BrandSplashScreen: React.FC = () => {
   );
 };
 
+const PAGE_TITLES: Record<string, string> = {
+  '/': 'Guru Padukam — Verified Vedic Purohits, Apara Seva & Pooja Essentials',
+  '/services': 'Vedic Services & Rituals | Guru Padukam',
+  '/purohits': 'Book Verified Purohits | Guru Padukam',
+  '/purohit-dashboard': 'Purohit Partner Portal | Guru Padukam',
+  '/apara': 'Apara Seva & Shraddha Peetas | Guru Padukam',
+  '/marketplace': 'Pooja Samagri Marketplace | Guru Padukam',
+  '/products': 'Pooja Samagri Marketplace | Guru Padukam',
+  '/about': 'About Us | Guru Padukam',
+  '/contact': 'Contact Us | Guru Padukam',
+  '/track-order': 'Track Order & Booking | Guru Padukam',
+  '/login': 'Sign In / Register | Guru Padukam',
+  '/profile': 'My Profile | Guru Padukam',
+  '/admin': 'Admin Dashboard | Guru Padukam',
+  '/privacy': 'Privacy Policy | Guru Padukam',
+  '/terms': 'Terms of Service | Guru Padukam',
+  '/shipping-policy': 'Shipping & Delivery Policy | Guru Padukam',
+  '/return-policy': 'Refund & Cancellation Policy | Guru Padukam',
+};
+
 const ScrollToTop = () => {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  const { setCartOpen } = useAppContext();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    setCartOpen(false);
+    document.title = PAGE_TITLES[pathname] || 'Guru Padukam';
+  }, [pathname, setCartOpen]);
   return null;
 };
 
@@ -115,6 +141,7 @@ const App: React.FC = () => {
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/shipping-policy" element={<ShippingPolicy />} />
               <Route path="/return-policy" element={<ReturnPolicy />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
           <Footer />

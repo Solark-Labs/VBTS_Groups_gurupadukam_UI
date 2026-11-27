@@ -6,6 +6,7 @@
  */
 import dotenv from 'dotenv';
 import express from 'express';
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -54,6 +55,83 @@ function sanitizeText(value, maxLen = 500) {
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .trim()
     .slice(0, maxLen);
+}
+
+// ─── Phase 1: Server-side Auth, Roles, OTP & Supabase Helper ─────────────────
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+const userAccountStore = new Map();
+const otpCodeStore = new Map();
+
+function hashPasswordScrypt(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const derived = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return `${salt}:${derived}`;
+}
+
+function verifyPasswordScrypt(password, stored) {
+  if (!stored || !stored.includes(':')) return false;
+  const [salt, expectedHex] = stored.split(':');
+  const derived = crypto.scryptSync(String(password), salt, 64);
+  const expected = Buffer.from(expectedHex, 'hex');
+  return derived.length === expected.length && crypto.timingSafeEqual(derived, expected);
+}
+
+function signAuthToken(payload, expiresInSec = 7 * 24 * 3600) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + expiresInSec })).toString('base64url');
+  const sig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+  return `${header}.${body}.${sig}`;
+}
+
+function verifyAuthToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [header, body, sig] = parts;
+  const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+  if (sig.length !== expectedSig.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) {
+    return null;
+  }
+  const decoded = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+  if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) return null;
+  return decoded;
+}
+
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const claims = verifyAuthToken(token);
+  if (!claims) {
+    return res.status(401).json({ success: false, message: 'Authentication required.' });
+  }
+  req.authUser = claims;
+  next();
+}
+
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.authUser || !roles.includes(req.authUser.role)) {
+      return res.status(403).json({ success: false, message: 'Insufficient permissions.' });
+    }
+    next();
+  };
+}
+
+async function supabaseRest(table, method = 'GET', body = null, query = '') {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  const res = await fetch(`${url}/rest/v1/${table}${query}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      Prefer: 'return=representation',
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) return null;
+  return res.json();
 }
 
 const PORT = Number(process?.env?.PORT || process?.env?.API_BACKEND_PORT || 5000);
@@ -522,6 +600,9 @@ app.post('/api/payments/cashfree/create-order', async (req, res) => {
 });
 
 app.post('/api/payments/cashfree/sandbox-action', (req, res) => {
+  if (process.env.NODE_ENV === 'production' || process.env.CASHFREE_ENV === 'PRODUCTION') {
+    return res.status(403).json({ success: false, message: 'Sandbox payment simulation is disabled in production.' });
+  }
   const { cfOrderId, action, method } = req.body || {};
   if (!cfOrderId || !cashfreeOrderStore.has(cfOrderId)) {
     return res.status(404).json({ success: false, message: 'Cashfree order not found' });
@@ -617,17 +698,188 @@ app.post('/api/payments/cashfree/verify', async (req, res) => {
   }
 });
 
-app.post('/api/purohit/kyc', (req, res) => {
-  const { email, name, phone, aadhaarLast4, kycCfOrderId, kycCfPaymentId, readyToShowVerification = true, vedicSampradaya } = req.body || {};
-  if (!email || !aadhaarLast4 || !kycCfPaymentId) {
-    return res.status(400).json({ success: false, message: 'Email, masked Aadhaar last 4 digits, and ₹1 KYC payment ID are required.' });
+// Cashfree Webhook — authoritative server-side payment confirmation
+app.post('/api/payments/cashfree/webhook', (req, res) => {
+  const webhookSecret = process.env.CASHFREE_WEBHOOK_SECRET;
+  const signature = req.headers['x-webhook-signature'];
+  const timestamp = req.headers['x-webhook-timestamp'];
+  if (webhookSecret) {
+    if (!signature || !timestamp) {
+      return res.status(401).json({ success: false, message: 'Missing Cashfree webhook signature headers.' });
+    }
+    const rawBody = JSON.stringify(req.body || {});
+    const expectedSig = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(`${timestamp}${rawBody}`)
+      .digest('base64');
+    if (String(signature) !== expectedSig) {
+      return res.status(401).json({ success: false, message: 'Invalid Cashfree webhook signature.' });
+    }
+  }
+
+  const eventData = req.body?.data || {};
+  const cfOrderId = eventData?.order?.order_id;
+  const orderStatus = eventData?.order?.order_status || eventData?.payment?.payment_status;
+  const cfPaymentId = eventData?.payment?.cf_payment_id;
+  if (cfOrderId && cashfreeOrderStore.has(cfOrderId)) {
+    const existing = cashfreeOrderStore.get(cfOrderId);
+    existing.status = orderStatus === 'PAID' || orderStatus === 'SUCCESS' ? 'PAID' : 'FAILED';
+    existing.cfPaymentId = cfPaymentId ? String(cfPaymentId) : existing.cfPaymentId;
+    existing.webhookVerifiedAt = new Date().toISOString();
+    cashfreeOrderStore.set(cfOrderId, existing);
+    savePersistedLedger();
+  }
+  return res.json({ received: true });
+});
+
+// ─── Auth & WhatsApp OTP Routes ──────────────────────────────────────────────
+app.post('/api/auth/register', async (req, res) => {
+  const { name, email, phone, password, role, address, city, pincode } = req.body || {};
+  const normalizedEmail = sanitizeText(email, 120).toLowerCase();
+  if (!name || !normalizedEmail || !password || String(password).length < 6) {
+    return res.status(400).json({ success: false, message: 'Name, email, and password (min 6 chars) are required.' });
+  }
+  if (userAccountStore.has(normalizedEmail)) {
+    return res.status(409).json({ success: false, message: 'Account already exists.' });
+  }
+  // Server enforces role: never allow self-registration as admin
+  const safeRole = role === 'purohit' ? 'purohit' : 'user';
+  const userRecord = {
+    id: `usr_${crypto.randomUUID()}`,
+    name: sanitizeText(name, 100),
+    email: normalizedEmail,
+    phone: sanitizeText(phone, 15).replace(/\D/g, '').slice(-10),
+    passwordHash: hashPasswordScrypt(password),
+    role: safeRole,
+    address: sanitizeText(address, 250),
+    city: sanitizeText(city, 60) || 'Khammam',
+    pincode: sanitizeText(pincode, 10),
+    createdAt: new Date().toISOString(),
+  };
+  userAccountStore.set(normalizedEmail, userRecord);
+  await supabaseRest('users', 'POST', {
+    id: userRecord.id,
+    name: userRecord.name,
+    email: userRecord.email,
+    phone: userRecord.phone,
+    password_hash: userRecord.passwordHash,
+    role: userRecord.role,
+    address: userRecord.address,
+    city: userRecord.city,
+    pincode: userRecord.pincode,
+  }).catch(() => null);
+
+  const token = signAuthToken({ id: userRecord.id, email: userRecord.email, role: userRecord.role });
+  const { passwordHash: _ph, ...publicUser } = userRecord;
+  return res.json({ success: true, token, user: publicUser });
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body || {};
+  const normalizedEmail = sanitizeText(email, 120).toLowerCase();
+  const existing = userAccountStore.get(normalizedEmail);
+  if (!existing || !verifyPasswordScrypt(password || '', existing.passwordHash)) {
+    return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+  }
+  const token = signAuthToken({ id: existing.id, email: existing.email, role: existing.role });
+  const { passwordHash: _ph, ...publicUser } = existing;
+  return res.json({ success: true, token, user: publicUser });
+});
+
+app.post('/api/auth/otp/send', async (req, res) => {
+  const cleanPhone = String(req.body?.phone || '').replace(/\D/g, '').slice(-10);
+  if (cleanPhone.length !== 10) {
+    return res.status(400).json({ success: false, message: 'Valid 10-digit mobile number required.' });
+  }
+  const code = String(crypto.randomInt(100000, 999999));
+  const codeHash = crypto.createHash('sha256').update(`${cleanPhone}:${code}`).digest('hex');
+  otpCodeStore.set(cleanPhone, { codeHash, expiresAt: Date.now() + 5 * 60 * 1000 });
+
+  if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
+    await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: `91${cleanPhone}`,
+        type: 'text',
+        text: { body: `Your Guru Padukam verification OTP is ${code}. Valid for 5 minutes.` },
+      }),
+    }).catch(() => null);
+  }
+  return res.json({ success: true, message: 'OTP dispatched via WhatsApp.' });
+});
+
+app.post('/api/auth/otp/verify', (req, res) => {
+  const cleanPhone = String(req.body?.phone || '').replace(/\D/g, '').slice(-10);
+  const code = String(req.body?.code || '').trim();
+  const entry = otpCodeStore.get(cleanPhone);
+  if (!entry || entry.expiresAt < Date.now()) {
+    return res.status(400).json({ success: false, message: 'OTP expired or not found.' });
+  }
+  const expectedHash = crypto.createHash('sha256').update(`${cleanPhone}:${code}`).digest('hex');
+  if (entry.codeHash !== expectedHash) {
+    return res.status(401).json({ success: false, message: 'Invalid OTP.' });
+  }
+  otpCodeStore.delete(cleanPhone);
+  return res.json({ success: true, verified: true, phone: cleanPhone });
+});
+
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  return res.json({ success: true, user: req.authUser });
+});
+
+// ─── Phase 3: Meta WhatsApp Business Cloud API Webhook ───────────────────────
+app.get('/api/whatsapp/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+  if (mode === 'subscribe' && token === (process.env.WHATSAPP_VERIFY_TOKEN || 'gp_whatsapp_verify')) {
+    return res.status(200).send(challenge);
+  }
+  return res.sendStatus(403);
+});
+
+app.post('/api/whatsapp/webhook', async (req, res) => {
+  const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  if (message?.from && message?.text?.body && process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
+    const text = String(message.text.body).toLowerCase();
+    let reply = 'Namaste from Guru Padukam! 🙏 Visit https://gurupadukam.com/#/purohits to book a Vedic Purohit with a ₹11 token, or reply TRACK <BookingID>.';
+    if (text.includes('dakshina') || text.includes('fee') || text.includes('price')) {
+      reply = 'You pay only a ₹11 token online to confirm your slot. Ceremony Dakshina is settled directly with the Purohit.';
+    } else if (text.includes('apara')) {
+      reply = 'For Apara Seva & Shraddha bookings, visit https://gurupadukam.com/#/apara or call +91 99497 30175.';
+    }
+    await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: message.from,
+        type: 'text',
+        text: { body: reply },
+      }),
+    }).catch(() => null);
+  }
+  return res.sendStatus(200);
+});
+
+app.post('/api/purohit/kyc', requireAuth, requireRole('purohit', 'admin'), (req, res) => {
+  const { email, name, phone, kycCfOrderId, kycCfPaymentId, readyToShowVerification = true, vedicSampradaya } = req.body || {};
+  if (!email || !kycCfPaymentId) {
+    return res.status(400).json({ success: false, message: 'Email and ₹1 witness payment ID are required.' });
   }
   const key = String(email).trim().toLowerCase();
   const record = {
     email: key,
     name: name || 'Verified Purohit',
     phone: phone || '',
-    aadhaarLast4: String(aadhaarLast4).slice(-4),
     kycVerified: true,
     kycRupeePaid: true,
     kycCfOrderId,
@@ -641,11 +893,11 @@ app.post('/api/purohit/kyc', (req, res) => {
   return res.json({ success: true, kyc: record });
 });
 
-app.get('/api/purohit/kyc', (_req, res) => {
+app.get('/api/purohit/kyc', requireAuth, requireRole('purohit', 'admin'), (_req, res) => {
   return res.json({ kycRecords: Array.from(purohitKycStore.values()) });
 });
 
-app.post('/api/bookings/create', (req, res) => {
+app.post('/api/bookings/create', requireAuth, (req, res) => {
   const booking = req.body || {};
   if (!booking.id) {
     return res.status(400).json({ success: false, message: 'Booking ID is required' });
@@ -672,8 +924,12 @@ app.post('/api/bookings/create', (req, res) => {
   return res.json({ success: true, booking: record });
 });
 
-app.get('/api/bookings', (_req, res) => {
-  return res.json({ bookings: Array.from(bookingLedgerStore.values()) });
+app.get('/api/bookings', requireAuth, (req, res) => {
+  const all = Array.from(bookingLedgerStore.values());
+  if (req.authUser.role === 'admin' || req.authUser.role === 'purohit') {
+    return res.json({ bookings: all });
+  }
+  return res.json({ bookings: all.filter(b => b.userId === req.authUser.id) });
 });
 
 app.post('/api/bookings/update-note', (req, res) => {
@@ -835,8 +1091,11 @@ app.post('/api/tickets', (req, res) => {
   return res.json({ success: true, ticket });
 });
 
-app.get('/api/wallet/:userId', (req, res) => {
+app.get('/api/wallet/:userId', requireAuth, (req, res) => {
   const safeUserId = sanitizeText(req.params.userId, 80) || 'guest';
+  if (req.authUser.role !== 'admin' && req.authUser.id !== safeUserId) {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
   return res.json(getOrCreateWallet(safeUserId));
 });
 

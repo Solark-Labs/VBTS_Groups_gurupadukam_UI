@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Lock, X, Smartphone, CreditCard, Building2, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import {
   CashfreeOrderResponse,
-  completeSandboxCashfreeOrder,
   verifyCashfreeTokenPayment,
 } from '../services/paymentService';
 
@@ -43,36 +42,34 @@ export const CashfreeCheckoutModal: React.FC<Props> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const payableAmount = Number(order.amount || 11);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !processing) {
+        onCancel('Payment cancelled before completion.');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [processing, onCancel]);
+
   const handlePayNow = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
-
-    if (order.mode === 'cashfree-sandbox-local') {
-      if (method === 'UPI' && (!upiId.includes('@') || upiId.trim().length < 5)) {
-        setErrorMsg(`Please enter a valid UPI ID (e.g. mobile@upi or name@okicici) to authorize ₹${payableAmount}.`);
-        return;
-      }
-      if (method === 'CARD' && cardLast4.replace(/\D/g, '').length < 4) {
-        setErrorMsg(`Please enter at least the last 4 digits of your card to authorize ₹${payableAmount}.`);
-        return;
-      }
-    }
-
     setProcessing(true);
 
     try {
-      // If live Cashfree SDK & session exist, launch Cashfree Checkout v3 Drop-in
-      if (order.mode === 'cashfree-live' && typeof window !== 'undefined' && window.Cashfree) {
-        const cashfree = window.Cashfree({ mode: 'production' });
-        await cashfree.checkout({
-          paymentSessionId: order.paymentSessionId,
-          redirectTarget: '_modal',
-        });
-      } else {
-        // Explicit user authorization inside Sandbox Cashfree Checkout Modal
-        await new Promise(r => setTimeout(r, 700));
-        await completeSandboxCashfreeOrder(order.cfOrderId, 'PAY', `${method}:${upiId || cardLast4 || bankName}`);
+      // Require live Cashfree SDK & session — never fake payment completion on the client
+      if (order.mode !== 'cashfree-live' || typeof window === 'undefined' || !window.Cashfree) {
+        setErrorMsg('Live Cashfree payment gateway is not configured on this server. Payment cannot be processed.');
+        setProcessing(false);
+        return;
       }
+
+      const cashfree = window.Cashfree({ mode: 'production' });
+      await cashfree.checkout({
+        paymentSessionId: order.paymentSessionId,
+        redirectTarget: '_modal',
+      });
 
       // Strictly verify with backend/gateway whether payment is actually PAID
       const verified = await verifyCashfreeTokenPayment({
@@ -96,19 +93,6 @@ export const CashfreeCheckoutModal: React.FC<Props> = ({
       setErrorMsg('Payment verification failed. Please retry or check your connection.');
       setProcessing(false);
     }
-  };
-
-  const handleSimulateFailure = async () => {
-    setProcessing(true);
-    await completeSandboxCashfreeOrder(order.cfOrderId, 'FAIL', method);
-    const check = await verifyCashfreeTokenPayment({
-      cfOrderId: order.cfOrderId,
-      bookingRef,
-      userId,
-      expectedAmount: payableAmount,
-    });
-    setProcessing(false);
-    setErrorMsg(check.message || `₹${payableAmount} payment declined / failed.`);
   };
 
   return (
@@ -262,14 +246,6 @@ export const CashfreeCheckoutModal: React.FC<Props> = ({
             </button>
 
             <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={processing}
-                onClick={handleSimulateFailure}
-                className="flex-1 py-2 border border-red-200 text-red-700 hover:bg-red-50 text-[11px] font-bold rounded"
-              >
-                Simulate Payment Failed
-              </button>
               <button
                 type="button"
                 disabled={processing}

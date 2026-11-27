@@ -48,6 +48,15 @@ export const Marketplace: React.FC = () => {
       return false;
     }
   });
+  useEffect(() => {
+    if (!quickViewProduct) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setQuickViewProduct(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [quickViewProduct]);
+
   const dismissSplash = () => {
     try {
       sessionStorage.setItem('gp_marketplace_splash_seen', '1');
@@ -227,7 +236,9 @@ export const Marketplace: React.FC = () => {
         {filteredProducts.length === 0 ? (
           <div className="text-center py-24 bg-white border border-gold/15 rounded-sm">
             <p className="font-cinzel text-lg text-maroon mb-2">{t('mktNoProducts')}</p>
-            <p className="font-garamond text-text-md italic mb-6">{t('mktDesc')}</p>
+            <p className="font-garamond text-text-md italic mb-6">
+              {language === 'te' ? 'మీరు వెతుకుతున్న వస్తువులు లేవు. దయచేసి అన్ని వస్తువులను చూడండి.' : 'Try adjusting your search or filter to find what you need.'}
+            </p>
             <button
               onClick={() => { handleCategoryChange('all'); setSearch(''); }}
               className="bg-maroon text-gold-pale font-cinzel text-xs tracking-widest uppercase px-6 py-2.5 clip-btn"
@@ -248,7 +259,12 @@ export const Marketplace: React.FC = () => {
       {quickViewProduct && (
         <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-text-dk/80 backdrop-blur-sm animate-fade-in" onClick={() => setQuickViewProduct(null)}>
           <div className="relative w-full max-w-2xl bg-cream shadow-2xl rounded-sm overflow-hidden grid grid-cols-1 md:grid-cols-2 border border-gold/20" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setQuickViewProduct(null)} className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 text-maroon flex items-center justify-center hover:bg-maroon hover:text-white transition-colors">
+            <button
+              type="button"
+              aria-label="Close quick view"
+              onClick={() => setQuickViewProduct(null)}
+              className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 text-maroon flex items-center justify-center hover:bg-maroon hover:text-white transition-colors"
+            >
               <X size={16} />
             </button>
             <div className="bg-[#F5F2EB] aspect-square md:aspect-auto">
