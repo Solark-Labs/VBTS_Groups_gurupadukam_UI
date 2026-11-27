@@ -61,7 +61,17 @@ function sanitizeText(value, maxLen = 500) {
 }
 
 // ─── Phase 1: Server-side Auth, Roles, OTP & Supabase Helper ─────────────────
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  crypto
+    .createHash('sha256')
+    .update(
+      process.env.SMTP_PASS ||
+        process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        process.env.CASHFREE_SECRET_KEY ||
+        'gurupadukam_fallback_secret_change_in_env'
+    )
+    .digest('hex');
 const userAccountStore = new Map();
 const otpCodeStore = new Map();
 const emailOtpStore = new Map();
