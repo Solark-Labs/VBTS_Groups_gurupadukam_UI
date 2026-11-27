@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Globe, ShieldCheck, Clock, Sparkles, BellRing, Phone, Mail,
   MapPin, Building2, Wallet, RefreshCw, BadgeCheck, Handshake
@@ -9,7 +9,17 @@ import { useAppContext } from '../contexts/AppContext';
 
 export const About: React.FC = () => {
   const { language, t } = useAppContext();
+  const location = useLocation();
   const isTe = language === 'te';
+
+  useEffect(() => {
+    if (location.pathname === '/contact') {
+      const el = document.getElementById('contact');
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+      }
+    }
+  }, [location.pathname]);
 
   const whatWeOffer = isTe
     ? [

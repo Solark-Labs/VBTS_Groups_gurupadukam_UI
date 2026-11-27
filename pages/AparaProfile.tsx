@@ -57,7 +57,7 @@ export const AparaProfile: React.FC = () => {
     setRevRating(5);
   };
 
-  const maskedPhone = `+${peeta.phone.slice(0, 2)} ${peeta.phone.slice(2, 7)} •••••`;
+  const maskedPhone = peeta.phone ? `+${peeta.phone.slice(0, 2)} ${peeta.phone.slice(2, 7)} •••••` : '+91 ••••• •••••';
 
   return (
     <div className="min-h-screen bg-cream pt-[104px] pb-16 px-4 sm:px-8">

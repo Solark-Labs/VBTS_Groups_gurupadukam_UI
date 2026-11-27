@@ -252,7 +252,7 @@ export interface AparaPeeta {
   name: string;
   nameTe: string;
   image: string;
-  phone: string;
+  phone?: string;
   organizerName: string;
   address: string;
   city: string;

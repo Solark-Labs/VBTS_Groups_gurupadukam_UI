@@ -8,7 +8,7 @@ export const Navbar: React.FC = () => {
   const {
     cart, setCartOpen, user, isAdmin, logout,
     notifications, markNotificationRead, markAllNotificationsRead,
-    pushPermission, pushEnabled, requestPushPermission, sendTestPush,
+    pushPermission, pushEnabled, requestPushPermission,
     language, setLanguage, t,
   } = useAppContext();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -33,7 +33,21 @@ export const Navbar: React.FC = () => {
   useEffect(() => {
     setMobileMenuOpen(false);
     setServicesOpen(false);
+    setNotifOpen(false);
+    setLangOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setNotifOpen(false);
+        setLangOpen(false);
+        setServicesOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const textColor = scrolled || !isHome ? 'text-maroon' : 'text-cream';
   const hoverColor = scrolled || !isHome ? 'hover:text-gold-dk' : 'hover:text-gold-lt';
@@ -276,18 +290,9 @@ export const Navbar: React.FC = () => {
                   </div>
                   <div className="px-3.5 py-2 bg-amber-50/90 border-b border-gold/20 flex items-center justify-between gap-2 text-[11px]">
                     {pushPermission === 'granted' && pushEnabled ? (
-                      <>
-                        <span className="text-green-800 font-semibold">
-                          🔔 {language === 'te' ? 'పుష్ అలర్ట్స్ ఆన్‌లో ఉన్నాయి' : 'Push Alerts Active'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={sendTestPush}
-                          className="px-2 py-0.5 bg-maroon text-gold-pale rounded text-[10px] font-bold hover:bg-maroon-md"
-                        >
-                          {language === 'te' ? 'పరీక్ష' : 'Test Push'}
-                        </button>
-                      </>
+                      <span className="text-green-800 font-semibold">
+                        🔔 {language === 'te' ? 'పుష్ అలర్ట్స్ ఆన్‌లో ఉన్నాయి' : 'Notifications Enabled'}
+                      </span>
                     ) : (
                       <>
                         <span className="text-maroon font-medium">

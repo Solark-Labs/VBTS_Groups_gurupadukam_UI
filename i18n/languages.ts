@@ -325,8 +325,8 @@ const EN: TranslationKeys = {
   aboutExplore: 'Explore Guru Padukam',
 
   trackTitle: 'Booking & Order Tracker',
-  trackDesc: 'Enter your Booking ID (BKG..., APR..., ORD...) or 10-Digit Mobile Number.',
-  trackPlaceholder: 'Enter Booking ID / Order ID or 10-digit Mobile Number…',
+  trackDesc: 'Enter both your Booking/Order ID (BKG..., APR..., ORD...) and 10-Digit Mobile Number.',
+  trackPlaceholder: 'Booking ID / Order ID…',
   trackBtn: 'Track',
 
   footerDesc: 'Sit at home and relax — explore gurupadukam.com for verified purohits, everyday pooja essentials in minutes, return gifts & full event support.',
@@ -499,8 +499,8 @@ const TE: TranslationKeys = {
   aboutExplore: 'గురు పాదుకం చూడండి',
 
   trackTitle: 'బుకింగ్ & ఆర్డర్ ట్రాకర్',
-  trackDesc: 'మీ బుకింగ్ ID (BKG..., APR..., ORD...) లేదా 10-అంకెల మొబైల్ నంబర్ నమోదు చేయండి.',
-  trackPlaceholder: 'బుకింగ్ ID / ఆర్డర్ ID లేదా 10-అంకెల మొబైల్ నంబర్…',
+  trackDesc: 'మీ బుకింగ్/ఆర్డర్ ID (BKG..., APR..., ORD...) మరియు 10-అంకెల మొబైల్ నంబర్ రెండింటినీ నమోదు చేయండి.',
+  trackPlaceholder: 'బుకింగ్ ID / ఆర్డర్ ID…',
   trackBtn: 'ట్రాక్ చేయండి',
 
   footerDesc: 'ఇంట్లో నిశ్చింతగా ఉండండి — ధృవీకరించబడిన పురోహితులు, నిమిషాల్లో పూజా సామగ్రి, రిటర్న్ గిఫ్ట్స్ & పూర్తి సహాయం.',

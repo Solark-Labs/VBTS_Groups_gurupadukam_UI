@@ -147,7 +147,7 @@ export const Apara: React.FC = () => {
         foodFilter === 'all' ||
         foodFilter === 'without-food' ||
         (foodFilter === 'with-food' && p.supportsFoodPackage);
-      const matchDist = modeFilter === 'online' || p.distanceKm <= maxDistanceKm;
+      const matchDist = p.distanceKm <= maxDistanceKm;
       return matchCeremony && matchMode && matchFood && matchDist;
       })
       .sort((a, b) => (sortBy === 'distance' ? a.distanceKm - b.distanceKm : b.rating - a.rating));
@@ -215,7 +215,7 @@ export const Apara: React.FC = () => {
       userEmail: bookEmail || user.email,
       peetaId: selectedPeeta.id,
       peetaName: selectedPeeta.name,
-      peetaPhone: selectedPeeta.phone,
+      peetaPhone: selectedPeeta.phone || BRAND_CONTACT.phoneRaw,
       peetaAddress: selectedPeeta.address,
       ceremonyType,
       date: bookDate,
@@ -587,7 +587,7 @@ export const Apara: React.FC = () => {
                     <div className="flex items-center gap-2 text-xs bg-ivory border border-gold/25 px-3 py-2 rounded-sm">
                       <Lock size={13} className="text-maroon shrink-0" />
                       <span className="text-text-md">
-                        Direct Contact: <strong className="font-mono text-maroon">{formatMaskedPhone(peeta.phone)}</strong>
+                        Direct Contact: <strong className="font-mono text-maroon">{peeta.phone ? formatMaskedPhone(peeta.phone) : '+91 ••••• •••••'}</strong>
                         <span className="text-[11px] text-text-lt ml-1.5">(Revealed on ₹11 token)</span>
                       </span>
                     </div>

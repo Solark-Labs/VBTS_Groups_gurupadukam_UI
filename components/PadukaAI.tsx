@@ -141,11 +141,28 @@ export const PadukaAI: React.FC = () => {
         text: `${langMeta.greeting} I am opening the Incident & Ticket Reporter for you right now so we can notify Admin and trigger an immediate Purohit swap if needed.`,
       };
       setTab('incident');
-    } else if (lower.includes('track') || lower.includes('status') || lower.includes('booking id') || q.includes('ट्रैक') || q.includes('ట్రాక్')) {
+    } else if (
+      lower.includes('dakshina') || lower.includes('cost') || lower.includes('price') ||
+      lower.includes('fee') || lower.includes('charge') || lower.includes('how much') ||
+      q.includes('దక్షిణ') || q.includes('ధర') || q.includes('ఖర్చు')
+    ) {
+      const isTeluguQuery = language === 'te' || /[\u0C00-\u0C7F]/.test(q);
       reply = {
         sender: 'ai',
-        text: `${langMeta.greeting} You can track any Purohit Booking, Apara Seva, or Marketplace Order using your Booking ID OR 10-digit Mobile Number on our Tracker page.`,
-        actionLabel: 'Open Booking Tracker',
+        text: isTeluguQuery
+          ? 'నమస్తే! స్లాట్ నిర్ధారణకు ఆన్‌లైన్‌లో కేవలం ₹11 టోకెన్ మాత్రమే చెల్లించాలి. పూజ దక్షిణను మీ పురోహితుడితో నేరుగా మాట్లాడి నిర్ణయించుకోవచ్చు.'
+          : 'You only pay a ₹11 token online via Cashfree to confirm your slot. Ceremony Dakshina is negotiated and settled directly with your chosen Purohit.',
+        actionLabel: isTeluguQuery ? 'పురోహితులను చూడండి' : 'Browse Purohits',
+        actionRoute: '/purohits',
+      };
+    } else if (lower.includes('track') || lower.includes('status') || lower.includes('booking id') || q.includes('ट्रैक') || q.includes('ట్రాక్')) {
+      const isTeluguQuery = language === 'te' || /[\u0C00-\u0C7F]/.test(q);
+      reply = {
+        sender: 'ai',
+        text: isTeluguQuery
+          ? 'మీ బుకింగ్ ID మరియు 10-అంకెల మొబైల్ నంబర్ రెండింటినీ ఉపయోగించి ట్రాకర్ పేజీలో స్థితిని చూడవచ్చు.'
+          : 'You can track any Purohit Booking, Apara Seva, or Marketplace Order using both your Booking/Order ID and 10-digit Mobile Number on our Tracker page.',
+        actionLabel: isTeluguQuery ? 'ట్రాకర్ తెరవండి' : 'Open Booking Tracker',
         actionRoute: '/track-order',
       };
     } else if (
@@ -153,9 +170,12 @@ export const PadukaAI: React.FC = () => {
       lower.includes('homa') || lower.includes('vehicle') || lower.includes('house') ||
       q.includes('पूजा') || q.includes('पुरोहित') || q.includes('పూజ') || q.includes('పురోహిత్') || q.includes('பூஜை')
     ) {
+      const isTeluguQuery = language === 'te' || /[\u0C00-\u0C7F]/.test(q);
       reply = {
         sender: 'ai',
-        text: `${langMeta.greeting} You can book a verified Purohit directly in my "Book Priest" tab right here! Pay just ₹11 token and our Purohit will contact you shortly.`,
+        text: isTeluguQuery
+          ? 'నమస్తే! ఇక్కడే "Book Priest" ట్యాబ్‌లో ₹11 టోకెన్‌తో ధృవీకరించబడిన పురోహితుడిని బుక్ చేయవచ్చు.'
+          : `${langMeta.greeting} You can book a verified Purohit directly in my "Book Priest" tab right here! Pay just ₹11 token and our Purohit will contact you shortly.`,
       };
     } else if (lower.includes('handoff') || lower.includes('dashboard')) {
       reply = {
@@ -163,6 +183,14 @@ export const PadukaAI: React.FC = () => {
         text: `${langMeta.greeting} Purohits can manage ceremonies, schedule 30-min prior pooja items, or trigger an Emergency Locality Handoff in the Purohit Operations Portal.`,
         actionLabel: 'Open Purohit Portal',
         actionRoute: '/purohit-dashboard',
+      };
+    } else {
+      const isTeluguQuery = language === 'te' || /[\u0C00-\u0C7F]/.test(q);
+      reply = {
+        sender: 'ai',
+        text: isTeluguQuery
+          ? 'నమస్తే! నేను గురు పాదుకం పూజలు, పురోహిత బుకింగ్ (₹11 టోకెన్), అపర సేవ మరియు పూజా సామగ్రి గురించి మాత్రమే సహాయం చేయగలను.'
+          : 'I can only help with Guru Padukam services — Purohit bookings (₹11 token + direct dakshina), Apara Seva, Pooja Samagri orders, and tracking.',
       };
     }
 

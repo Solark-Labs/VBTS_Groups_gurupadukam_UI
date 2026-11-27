@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import {
   AlertTriangle, CheckCircle2, Clock, MapPin, Navigation, Package,
   Phone, RefreshCw, ShieldAlert, ShieldCheck, BadgeCheck, Truck, UserCheck, ExternalLink, Sparkles, Camera, Upload, X
@@ -44,8 +44,30 @@ export const PurohitDashboard: React.FC = () => {
   const [showVerificationCard, setShowVerificationCard] = useState(false);
   const [pendingKycOrder, setPendingKycOrder] = useState<CashfreeOrderResponse | null>(null);
 
-  if (!user || (user.role !== 'purohit' && user.role !== 'admin')) {
+  if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== 'purohit' && user.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center px-4 pt-28 pb-16">
+        <div className="max-w-md w-full bg-white border border-gold/30 rounded-lg p-8 text-center shadow-md space-y-4">
+          <ShieldAlert size={36} className="mx-auto text-maroon" />
+          <h1 className="font-serif text-2xl font-bold text-maroon">Purohit Partners Only</h1>
+          <p className="text-sm text-text-md">
+            This operations portal is restricted to verified Purohit partners. Devotee accounts can book ceremonies and view their bookings from Profile or Track Order.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3 pt-2">
+            <Link to="/purohits" className="bg-maroon text-gold-pale px-5 py-2.5 text-xs font-cinzel font-bold uppercase tracking-wider rounded hover:bg-maroon-md">
+              Browse Purohits
+            </Link>
+            <Link to="/profile" className="border border-maroon text-maroon px-5 py-2.5 text-xs font-cinzel font-bold uppercase tracking-wider rounded hover:bg-maroon/5">
+              My Profile
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const matchedOwnPurohit = purohits.find(

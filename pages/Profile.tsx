@@ -339,9 +339,10 @@ export const Profile: React.FC = () => {
                     <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Phone Number</label>
                     <input
                       type="tel"
+                      maxLength={10}
                       value={phone}
-                      onChange={e => setPhone(e.target.value)}
-                      placeholder="+91 98765 43210"
+                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="10-digit mobile (starts with 6-9)"
                       className="w-full px-4 py-2.5 border border-gold/30 focus:outline-none focus:border-maroon bg-cream/10 rounded"
                     />
                   </div>
