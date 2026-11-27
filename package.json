@@ -9,10 +9,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.5.0",
+    "google-auth-library": "^10.5.0",
     "lucide-react": "latest",
+    "node-fetch": "^3.3.2",
     "react": "latest",
     "react-dom": "latest",
-    "react-router-dom": "latest"
+    "react-router-dom": "latest",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "latest",

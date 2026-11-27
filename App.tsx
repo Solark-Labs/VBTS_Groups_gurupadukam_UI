@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AppProvider, useAppContext } from './contexts/AppContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { CartModal } from './components/CartModal';
@@ -84,7 +85,8 @@ const ScrollToTop = () => {
 
 const App: React.FC = () => {
   return (
-    <AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
       <HashRouter>
         <ScrollToTop />
         <div className="flex flex-col min-h-screen font-sans">
@@ -130,6 +132,7 @@ const App: React.FC = () => {
         </div>
       </HashRouter>
     </AppProvider>
+    </ErrorBoundary>
   );
 };
 

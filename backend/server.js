@@ -7,6 +7,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { GoogleAuth } from 'google-auth-library';
 import fetch from 'node-fetch';
@@ -17,18 +18,43 @@ dotenv.config({ path: '.env' });
 dotenv.config({ path: '.env.local', override: true });
 
 const app = express();
-app.use(express.json({limit: process?.env?.API_PAYLOAD_MAX_SIZE || "7mb"}));
+app.disable('x-powered-by');
+app.set('trust proxy', 1 /* number of proxies between user and server */);
 
+app.use('/api-proxy', express.json({ limit: process?.env?.API_PAYLOAD_MAX_SIZE || '7mb' }));
+app.use(express.json({ limit: '1mb' }));
+
+// Security headers (anti-XSS, clickjacking, MIME-sniffing, HSTS)
 app.use((req, res, next) => {
-  const allowedOrigin = process.env.CORS_ORIGIN || req.headers.origin || '*';
-  res.header('Access-Control-Allow-Origin', allowedOrigin);
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-app-proxy');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+
+  const corsOrigin = process.env.CORS_ORIGIN;
+  if (corsOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  } else if (req.headers.origin && !process.env.VERCEL) {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-app-proxy');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
   }
   next();
 });
+
+function sanitizeText(value, maxLen = 500) {
+  if (value === undefined || value === null) return '';
+  return String(value)
+    .replace(/<[^>]*>/g, '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .trim()
+    .slice(0, maxLen);
+}
 
 const PORT = Number(process?.env?.PORT || process?.env?.API_BACKEND_PORT || 5000);
 const API_BACKEND_HOST = process?.env?.API_BACKEND_HOST || "0.0.0.0";
@@ -41,7 +67,26 @@ if (!VERTEX_PROXY_ENABLED) {
   console.warn("[Backend] Vertex AI proxy env vars not set; /api-proxy and /ws-proxy disabled, core booking/payment APIs active.");
 }
 
-app.set('trust proxy', 1 /* number of proxies between user and server */);
+// General & Strict DoS Rate Limiters
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 150,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests', message: 'Rate limit exceeded. Please try again shortly.' },
+});
+const strictLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 35,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests', message: 'Too many payment or booking attempts. Please wait a moment.' },
+});
+app.use('/api', apiLimiter);
+app.use('/api/payments', strictLimiter);
+app.use('/api/purohit/kyc', strictLimiter);
+app.use('/api/bookings', strictLimiter);
+app.use('/api/tickets', strictLimiter);
 
 // IMPORTANT: Vertex AI Studio Rate Limiting
 // This rate limiting configuration protects your backend APIs from abuse.
@@ -341,7 +386,9 @@ app.post('/api-proxy', async (req, res) => {
 });
 
 // ─── Cashfree ₹11 Token Payment Verification, Booking State & Wallet Ledger ───
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_DIR = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'gp-data')
+  : path.resolve(process.cwd(), 'data');
 const LEDGER_FILE = path.join(DATA_DIR, 'gp-ledger.json');
 
 function loadPersistedLedger() {
@@ -789,17 +836,30 @@ app.post('/api/tickets', (req, res) => {
 });
 
 app.get('/api/wallet/:userId', (req, res) => {
-  return res.json(getOrCreateWallet(req.params.userId));
+  const safeUserId = sanitizeText(req.params.userId, 80) || 'guest';
+  return res.json(getOrCreateWallet(safeUserId));
 });
 
-const server = app.listen(PORT, API_BACKEND_HOST, () => {
-  console.log(`Vertex AI Backend listening at http://localhost:${PORT}`);
+// Global error handler — ensures malformed JSON or unexpected errors never crash the server
+app.use((err, _req, res, _next) => {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ success: false, message: 'Payload too large.' });
+  }
+  if (err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({ success: false, message: 'Invalid JSON request body.' });
+  }
+  console.error('[Backend] Unhandled error:', err?.message || err);
+  return res.status(500).json({ success: false, message: 'Internal server error.' });
 });
 
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, API_BACKEND_HOST, () => {
+    console.log(`Guru Padukam Backend listening at http://localhost:${PORT}`);
+  });
 
-const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true });
 
-server.on('upgrade', async (request, socket, head) => {
+  server.on('upgrade', async (request, socket, head) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
 
   if (url.pathname === '/ws-proxy') {
@@ -936,6 +996,9 @@ server.on('upgrade', async (request, socket, head) => {
     // Path did not match
     socket.destroy();
   }
-});
+  });
+}
+
+export default app;
 
 
