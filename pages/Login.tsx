@@ -328,7 +328,9 @@ export const Login: React.FC = () => {
               className="w-16 h-16 mx-auto rounded-full border-2 border-gold/60 bg-cream object-cover p-0.5 shadow-md"
             />
           </div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-maroon">Guru Padukam Portal</h1>
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-maroon">
+            {isTe ? 'గురు పాదుకం పోర్టల్' : 'Guru Padukam Portal'}
+          </h1>
           <p className="text-xs text-text-md mt-1 font-medium">
             {mode === 'register' ? t('registerSubtitle') : t('loginSubtitle')}
           </p>
@@ -362,9 +364,9 @@ export const Login: React.FC = () => {
         {/* Role Selector (Admin is only available in Sign In, never public registration) */}
         <div className={`grid ${mode === 'login' ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-6 text-xs font-semibold`}>
           {([
-            { id: 'user' as const, title: isTe ? 'భక్తులు / కుటుంబం' : 'Devotee / Family', sub: 'Book @ ₹11' },
-            { id: 'purohit' as const, title: isTe ? 'పురోహితులు / పీఠం' : 'Purohit / Peeta', sub: '₹1 Witness KYC' },
-            ...(mode === 'login' ? [{ id: 'admin' as const, title: 'Platform Admin', sub: 'Verified Only' }] : []),
+            { id: 'user' as const, title: isTe ? 'భక్తులు / కుటుంబం' : 'Devotee / Family', sub: isTe ? '₹11 తో బుకింగ్' : 'Book @ ₹11' },
+            { id: 'purohit' as const, title: isTe ? 'పురోహితులు / పీఠం' : 'Purohit / Peeta', sub: isTe ? '₹1 సాక్ష్య KYC' : '₹1 Witness KYC' },
+            ...(mode === 'login' ? [{ id: 'admin' as const, title: isTe ? 'ప్లాట్‌ఫారమ్ అడ్మిన్' : 'Platform Admin', sub: isTe ? 'ధృవీకరించినవారు మాత్రమే' : 'Verified Only' }] : []),
           ]).map(item => (
             <button
               key={item.id}
@@ -415,10 +417,12 @@ export const Login: React.FC = () => {
               <div className="flex-1 w-full space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-maroon">
-                    Profile Photo {role === 'purohit' ? '(Recommended for Devotee Trust)' : '(Optional)'}
+                    {isTe
+                      ? `ప్రొఫైల్ ఫోటో ${role === 'purohit' ? '(భక్తుల నమ్మకం కోసం సిఫార్సు)' : '(ఐచ్ఛికం)'}`
+                      : `Profile Photo ${role === 'purohit' ? '(Recommended for Devotee Trust)' : '(Optional)'}`}
                   </span>
                   <label className="cursor-pointer text-[11px] font-bold px-3 py-1 bg-gold/20 text-maroon border border-gold/40 rounded hover:bg-gold/30 transition-colors">
-                    {regProfileImage ? 'Change Photo' : 'Upload Photo'}
+                    {regProfileImage ? (isTe ? 'ఫోటో మార్చండి' : 'Change Photo') : (isTe ? 'ఫోటో అప్‌లోడ్' : 'Upload Photo')}
                     <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
                   </label>
                 </div>
@@ -447,7 +451,7 @@ export const Login: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                Full Legal Name (As Per ID) *
+                {isTe ? 'పూర్తి పేరు (ID ప్రకారం) *' : 'Full Legal Name (As Per ID) *'}
               </label>
               <div className="relative">
                 <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
@@ -456,7 +460,11 @@ export const Login: React.FC = () => {
                   required
                   value={regName}
                   onChange={e => setRegName(e.target.value)}
-                  placeholder={role === 'purohit' ? 'e.g. Brahmasri Subrahmanyam Sharma' : 'e.g. Subba Rao / Smt. Lakshmi'}
+                  placeholder={
+                    isTe
+                      ? (role === 'purohit' ? 'ఉదా. బ్రహ్మశ్రీ సుబ్రహ్మణ్య శర్మ' : 'ఉదా. సుబ్బారావు / శ్రీమతి లక్ష్మి')
+                      : (role === 'purohit' ? 'e.g. Brahmasri Subrahmanyam Sharma' : 'e.g. Subba Rao / Smt. Lakshmi')
+                  }
                   className="w-full pl-9 pr-3 py-2.5 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                 />
               </div>
@@ -465,18 +473,19 @@ export const Login: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                  Mobile / WhatsApp *
+                  {isTe ? 'మొబైల్ / వాట్సాప్ నంబర్ *' : 'Mobile / WhatsApp *'}
                 </label>
                 <div className="relative">
                   <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
                   <input
                     type="tel"
                     required
-                    pattern="[0-9]{10}"
-                    title="Please enter a valid 10-digit mobile number"
+                    maxLength={10}
+                    pattern="[6-9][0-9]{9}"
+                    title={isTe ? '6, 7, 8 లేదా 9తో మొదలయ్యే 10-అంకెల మొబైల్ నంబర్ నమోదు చేయండి' : 'Please enter a valid 10-digit Indian mobile number starting with 6-9'}
                     value={regPhone}
-                    onChange={e => setRegPhone(e.target.value)}
-                    placeholder="10-digit number (e.g. 9949730175)"
+                    onChange={e => setRegPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder={isTe ? '10-అంకెల నంబర్ (ఉదా. 9876543210)' : '10-digit number (e.g. 9876543210)'}
                     className="w-full pl-9 pr-3 py-2.5 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                   />
                 </div>
@@ -484,7 +493,7 @@ export const Login: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                  Email Address *
+                  {isTe ? 'ఇమెయిల్ చిరునామా *' : 'Email Address *'}
                 </label>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
@@ -502,7 +511,9 @@ export const Login: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                {role === 'purohit' ? 'Service Area / Residence Address *' : 'Ceremonial / Doorstep Address *'}
+                {isTe
+                  ? (role === 'purohit' ? 'సేవా ప్రాంతం / నివాస చిరునామా *' : 'పూజ / డెలివరీ చిరునామా *')
+                  : (role === 'purohit' ? 'Service Area / Residence Address *' : 'Ceremonial / Doorstep Address *')}
               </label>
               <div className="relative">
                 <MapPin size={16} className="absolute left-3 top-3 text-text-lt" />
@@ -511,7 +522,7 @@ export const Login: React.FC = () => {
                   rows={2}
                   value={regAddress}
                   onChange={e => setRegAddress(e.target.value)}
-                  placeholder="House/Flat No., Street, Landmark"
+                  placeholder={isTe ? 'ఇంటి నం., వీధి, గుర్తు చిహ్నం' : 'House/Flat No., Street, Landmark'}
                   className="w-full pl-9 pr-3 py-2 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon resize-none"
                 />
               </div>
@@ -519,7 +530,7 @@ export const Login: React.FC = () => {
 
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-maroon">
-                City &amp; PIN Code
+                {isTe ? 'నగరం & పిన్ కోడ్' : 'City & PIN Code'}
               </span>
               <button
                 type="button"
@@ -528,27 +539,29 @@ export const Login: React.FC = () => {
                 className="inline-flex items-center gap-1.5 text-[11px] font-bold text-maroon bg-gold/20 hover:bg-gold/30 border border-gold/40 px-2.5 py-1 rounded transition-colors disabled:opacity-60"
               >
                 {isDetectingLocation ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />}
-                {isDetectingLocation ? 'Detecting…' : 'Detect My Location & PIN'}
+                {isDetectingLocation
+                  ? (isTe ? 'గుర్తిస్తోంది…' : 'Detecting…')
+                  : (isTe ? 'నా స్థానం & పిన్ గుర్తించండి' : 'Detect My Location & PIN')}
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                  City / Town *
+                  {isTe ? 'నగరం / పట్టణం *' : 'City / Town *'}
                 </label>
                 <input
                   type="text"
                   required
                   value={regCity}
                   onChange={e => setRegCity(e.target.value)}
-                  placeholder="Enter city / town"
+                  placeholder={isTe ? 'నగరం / పట్టణం నమోదు చేయండి' : 'Enter city / town'}
                   className="w-full px-3 py-2 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                  PIN Code *
+                  {isTe ? 'పిన్ కోడ్ *' : 'PIN Code *'}
                 </label>
                 <input
                   type="text"
@@ -558,7 +571,7 @@ export const Login: React.FC = () => {
                   pattern="[0-9]{6}"
                   value={regPincode}
                   onChange={e => setRegPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="6-digit PIN"
+                  placeholder={isTe ? '6-అంకెల పిన్' : '6-digit PIN'}
                   className="w-full px-3 py-2 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                 />
               </div>
@@ -566,7 +579,7 @@ export const Login: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                Password *
+                {isTe ? 'పాస్‌వర్డ్ *' : 'Password *'}
               </label>
               <div className="relative">
                 <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
@@ -576,7 +589,7 @@ export const Login: React.FC = () => {
                   minLength={6}
                   value={regPassword}
                   onChange={e => setRegPassword(e.target.value)}
-                  placeholder="At least 6 characters"
+                  placeholder={isTe ? 'కనీసం 6 అక్షరాలు' : 'At least 6 characters'}
                   className="w-full pl-9 pr-3 py-2.5 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                 />
               </div>
@@ -702,12 +715,23 @@ export const Login: React.FC = () => {
               /* ─── DEVOTEE REGISTRATION POLICIES ─── */
               <div className="bg-white border border-gold/35 rounded-lg p-4 space-y-2.5 text-xs">
                 <div className="font-cinzel text-[11px] font-bold uppercase tracking-wider text-maroon flex items-center gap-1.5">
-                  <ShieldCheck size={14} className="text-gold-dk" /> Devotee Policies &amp; Protection Summary
+                  <ShieldCheck size={14} className="text-gold-dk" />{' '}
+                  {isTe ? 'భక్తుల విధానాలు & రక్షణ సారాంశం' : 'Devotee Policies & Protection Summary'}
                 </div>
                 <ul className="list-disc pl-4 space-y-1 text-[11px] text-text-md">
-                  <li><strong>₹11 Online Token Only:</strong> Direct ceremony Dakshina/advance is negotiated directly with your Purohit and acknowledged on your booking card.</li>
-                  <li><strong>Zero-Loss Swaps &amp; Cancellation Windows:</strong> Free date swap (≥3 days standard / ≥10 days major rituals). Purohit declines auto-credit ₹11 to your Wallet. Same-day or immediate bookings follow direct Purohit rules.</li>
-                  <li><strong>Partner Store Orders:</strong> Marketplace items are fulfilled by partner stores; Guru Padukam Support speaks directly with merchants on your behalf if issues occur.</li>
+                  {isTe ? (
+                    <>
+                      <li><strong>కేవలం ₹11 ఆన్‌లైన్ టోకెన్ మాత్రమే:</strong> పూజ దక్షిణ / అడ్వాన్స్ మీ పురోహితుడితో నేరుగా మాట్లాడి బుకింగ్ కార్డులో నమోదు చేయవచ్చు.</li>
+                      <li><strong>ఉచిత మార్పులు &amp; రద్దు నియమాలు:</strong> ఉచిత తేదీ మార్పు (సాధారణ పూజలు ≥3 రోజులు / పెద్ద పూజలు ≥10 రోజులు). పురోహితుడు రద్దు చేస్తే ₹11 మీ వాలెట్‌లో చేరుతుంది.</li>
+                      <li><strong>భాగస్వామి స్టోర్ ఆర్డర్లు:</strong> పూజా సామగ్రిని భాగస్వామి స్టోర్లు పంపిణీ చేస్తాయి; ఏదైనా సమస్య ఉంటే గురు పాదుకం బృందం వ్యాపారితో మాట్లాడుతుంది.</li>
+                    </>
+                  ) : (
+                    <>
+                      <li><strong>₹11 Online Token Only:</strong> Direct ceremony Dakshina/advance is negotiated directly with your Purohit and acknowledged on your booking card.</li>
+                      <li><strong>Zero-Loss Swaps &amp; Cancellation Windows:</strong> Free date swap (≥3 days standard / ≥10 days major rituals). Purohit declines auto-credit ₹11 to your Wallet. Same-day or immediate bookings follow direct Purohit rules.</li>
+                      <li><strong>Partner Store Orders:</strong> Marketplace items are fulfilled by partner stores; Guru Padukam Support speaks directly with merchants on your behalf if issues occur.</li>
+                    </>
+                  )}
                 </ul>
                 <label className="flex items-start gap-2 cursor-pointer pt-1 text-[11px] text-text-dk">
                   <input
@@ -718,10 +742,21 @@ export const Login: React.FC = () => {
                     className="mt-0.5 accent-maroon"
                   />
                   <span>
-                    I accept the <strong>Devotee Policies</strong>,{' '}
-                    <Link to="/terms" target="_blank" className="text-maroon underline font-semibold">Terms &amp; Conditions</Link>,{' '}
-                    <Link to="/return-policy" target="_blank" className="text-maroon underline font-semibold">Refund &amp; Cancellation Policy</Link>, and{' '}
-                    <Link to="/privacy" target="_blank" className="text-maroon underline font-semibold">Privacy Policy</Link>.
+                    {isTe ? (
+                      <>
+                        నేను <strong>భక్తుల విధానాలు</strong>,{' '}
+                        <Link to="/terms" target="_blank" className="text-maroon underline font-semibold">నిబంధనలు &amp; షరతులు</Link>,{' '}
+                        <Link to="/return-policy" target="_blank" className="text-maroon underline font-semibold">రద్దు &amp; వాపసు విధానం</Link> మరియు{' '}
+                        <Link to="/privacy" target="_blank" className="text-maroon underline font-semibold">గోప్యతా విధానం</Link>ను అంగీకరిస్తున్నాను.
+                      </>
+                    ) : (
+                      <>
+                        I accept the <strong>Devotee Policies</strong>,{' '}
+                        <Link to="/terms" target="_blank" className="text-maroon underline font-semibold">Terms &amp; Conditions</Link>,{' '}
+                        <Link to="/return-policy" target="_blank" className="text-maroon underline font-semibold">Refund &amp; Cancellation Policy</Link>, and{' '}
+                        <Link to="/privacy" target="_blank" className="text-maroon underline font-semibold">Privacy Policy</Link>.
+                      </>
+                    )}
                   </span>
                 </label>
               </div>
@@ -735,7 +770,7 @@ export const Login: React.FC = () => {
               {isAuthLoading
                 ? <Loader2 className="animate-spin" size={16} />
                 : role === 'purohit'
-                ? 'Complete Verified Purohit Registration'
+                ? (isTe ? 'ధృవీకరించబడిన పురోహిత నమోదు పూర్తి చేయండి' : 'Complete Verified Purohit Registration')
                 : t('completeRegistration')}
             </button>
 
@@ -746,7 +781,7 @@ export const Login: React.FC = () => {
                 disabled={isAuthLoading}
                 className="w-full py-2.5 bg-white border border-gold/40 hover:bg-gold/10 text-maroon font-semibold text-xs uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2"
               >
-                Continue with Google (Auto-fill Name, Email &amp; Photo)
+                {isTe ? 'Google తో కొనసాగండి (పేరు, ఇమెయిల్ & ఫోటో)' : 'Continue with Google (Auto-fill Name, Email & Photo)'}
               </button>
             )}
           </form>
@@ -757,7 +792,7 @@ export const Login: React.FC = () => {
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                Registered Email *
+                {isTe ? 'నమోదు చేసిన ఇమెయిల్ *' : 'Registered Email *'}
               </label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
@@ -774,7 +809,7 @@ export const Login: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                Password *
+                {isTe ? 'పాస్‌వర్డ్ *' : 'Password *'}
               </label>
               <div className="relative">
                 <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
@@ -795,7 +830,7 @@ export const Login: React.FC = () => {
                 onClick={handleForgotPassword}
                 className="text-maroon font-semibold hover:underline"
               >
-                Forgot Password?
+                {isTe ? 'పాస్‌వర్డ్ మర్చిపోయారా?' : 'Forgot Password?'}
               </button>
               {role === 'admin' && (
                 <span className="text-[11px] text-amber-800 font-semibold">
@@ -811,6 +846,8 @@ export const Login: React.FC = () => {
             >
               {isAuthLoading
                 ? <Loader2 className="animate-spin" size={16} />
+                : isTe
+                ? `${role === 'purohit' ? 'పురోహితుడిగా' : 'భక్తుడిగా'} సైన్ ఇన్ చేయండి`
                 : `Sign In as ${role === 'purohit' ? 'Purohit Partner' : 'Devotee'}`}
             </button>
 
@@ -821,7 +858,7 @@ export const Login: React.FC = () => {
                 disabled={isAuthLoading}
                 className="w-full py-2.5 bg-white border border-gold/40 hover:bg-gold/10 text-maroon font-semibold text-xs uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2"
               >
-                Continue with Google
+                {isTe ? 'Google తో కొనసాగండి' : 'Continue with Google'}
               </button>
             )}
           </form>
