@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppProvider, useAppContext } from './contexts/AppContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Navbar } from './components/Navbar';
@@ -131,6 +132,7 @@ const App: React.FC = () => {
           </a>
         </div>
       </HashRouter>
+      <SpeedInsights />
     </AppProvider>
     </ErrorBoundary>
   );
