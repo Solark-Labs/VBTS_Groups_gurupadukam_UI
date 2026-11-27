@@ -62,6 +62,17 @@ export const firebaseMock = {
         role,
         preferredLanguage: data.preferredLanguage || 'en',
         profileImage: data.profileImage,
+        aadhaarLast4: data.aadhaarLast4,
+        aadhaarDocPreview: data.aadhaarDocPreview,
+        kycVerified: data.kycVerified,
+        kycRupeePaid: data.kycRupeePaid,
+        kycCfOrderId: data.kycCfOrderId,
+        kycCfPaymentId: data.kycCfPaymentId,
+        kycVerifiedAt: data.kycVerifiedAt,
+        readyToShowVerification: data.readyToShowVerification,
+        vedicSampradaya: data.vedicSampradaya,
+        experienceYears: data.experienceYears,
+        acceptedRolePolicyAt: data.acceptedRolePolicyAt,
         createdAt: new Date().toISOString(),
         notifications: { email: true, sms: true }
       };

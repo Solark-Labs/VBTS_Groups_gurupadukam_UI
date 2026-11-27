@@ -195,8 +195,13 @@ export const PurohitProfile: React.FC = () => {
                 <div className="text-xs text-text-lt mt-0.5">{purohit.completedPoojas.toLocaleString()} completed poojas · {purohit.reviews} reviews</div>
               </div>
             </div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-800 bg-green-50 border border-green-200 px-3 py-1 rounded-full">
-              <ShieldCheck size={14} /> Verified Vedic Scholar
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-800 bg-green-50 border border-green-200 px-3 py-1 rounded-full">
+                <ShieldCheck size={14} /> Aadhaar + ₹1 KYC Verified
+              </div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-maroon bg-amber-50 border border-gold/40 px-3 py-1 rounded-full">
+                ✓ Ready to Show ID at Venue
+              </div>
             </div>
           </div>
 

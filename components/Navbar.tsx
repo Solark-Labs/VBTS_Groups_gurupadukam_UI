@@ -38,17 +38,29 @@ export const Navbar: React.FC = () => {
   const textColor = scrolled || !isHome ? 'text-maroon' : 'text-cream';
   const hoverColor = scrolled || !isHome ? 'hover:text-gold-dk' : 'hover:text-gold-lt';
 
-  const serviceLinks = [
-    { label: 'All Services', path: '/services', icon: '🧭' },
-    { label: 'Book a Purohit (₹11)', path: '/purohits', icon: '🙏' },
-    { label: 'Apara (Abdikam / Last Rites)', path: '/apara', icon: '🕉️' },
-    { label: 'Everyday Essentials', path: '/marketplace?cat=essentials', icon: '⚡' },
-    { label: 'Return Gifts', path: '/marketplace?cat=return-gifts', icon: '🎁' },
-    { label: 'Nadaswaram Troupe', path: '/services?cat=nadaswaram', icon: '🎵' },
-    { label: 'Flower Decoration', path: '/services?cat=decoration', icon: '🌸' },
-    { label: 'Track by ID / Mobile', path: '/track-order', icon: '📍' },
-    { label: 'Purohit Operations Portal', path: '/purohit-dashboard', icon: '🛕' },
-  ];
+  const serviceLinks = language === 'te'
+    ? [
+        { label: 'అన్ని సేవలు', path: '/services', icon: '🧭' },
+        { label: 'పురోహితుడిని బుక్ చేయండి (₹11)', path: '/purohits', icon: '🙏' },
+        { label: 'అపర కర్మలు (అబ్దికం / మాసికం)', path: '/apara', icon: '🕉️' },
+        { label: 'నిత్య అవసరాలు', path: '/marketplace?cat=essentials', icon: '⚡' },
+        { label: 'రిటర్న్ గిఫ్ట్స్', path: '/marketplace?cat=return-gifts', icon: '🎁' },
+        { label: 'నాదస్వరం బృందం', path: '/services?cat=nadaswaram', icon: '🎵' },
+        { label: 'పుష్ప అలంకరణ', path: '/services?cat=decoration', icon: '🌸' },
+        { label: 'బుకింగ్ / మొబైల్ ట్రాక్', path: '/track-order', icon: '📍' },
+        { label: 'పురోహిత పోర్టల్', path: '/purohit-dashboard', icon: '🛕' },
+      ]
+    : [
+        { label: 'All Services', path: '/services', icon: '🧭' },
+        { label: 'Book a Purohit (₹11)', path: '/purohits', icon: '🙏' },
+        { label: 'Apara (Abdikam / Last Rites)', path: '/apara', icon: '🕉️' },
+        { label: 'Everyday Essentials', path: '/marketplace?cat=essentials', icon: '⚡' },
+        { label: 'Return Gifts', path: '/marketplace?cat=return-gifts', icon: '🎁' },
+        { label: 'Nadaswaram Troupe', path: '/services?cat=nadaswaram', icon: '🎵' },
+        { label: 'Flower Decoration', path: '/services?cat=decoration', icon: '🌸' },
+        { label: 'Track by ID / Mobile', path: '/track-order', icon: '📍' },
+        { label: 'Purohit Operations Portal', path: '/purohit-dashboard', icon: '🛕' },
+      ];
 
   const navLinks = [
     { label: t('navHome'), path: '/' },
@@ -176,9 +188,9 @@ export const Navbar: React.FC = () => {
                 <ChevronDown size={12} />
               </button>
               {isLangOpen && (
-                <div className="absolute right-0 top-full mt-2 w-60 bg-white border border-gold/30 shadow-2xl rounded-md z-[130] max-h-80 overflow-y-auto py-1 text-text-dk">
+                <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-gold/30 shadow-2xl rounded-md z-[130] overflow-hidden py-1 text-text-dk">
                   <div className="px-3 py-2 bg-maroon text-gold-pale text-[10px] font-bold uppercase tracking-wider">
-                    Pan-India Languages (14)
+                    {language === 'te' ? 'భాష ఎంచుకోండి' : 'Select Language'}
                   </div>
                   {PAN_INDIA_LANGUAGES.map(lang => (
                     <button
@@ -249,38 +261,44 @@ export const Navbar: React.FC = () => {
               {isNotifOpen && (
                 <div className="absolute right-0 top-full mt-3 w-80 bg-white border border-gold/30 shadow-2xl rounded-md z-[120] overflow-hidden text-text-dk">
                   <div className="px-4 py-2.5 bg-maroon text-gold-pale flex items-center justify-between">
-                    <span className="font-cinzel text-xs font-bold uppercase tracking-wider">Event Alerts ({unreadCount})</span>
+                    <span className="font-cinzel text-xs font-bold uppercase tracking-wider">
+                      {language === 'te' ? `అలర్ట్స్ (${unreadCount})` : `Event Alerts (${unreadCount})`}
+                    </span>
                     {unreadCount > 0 && (
                       <button
                         type="button"
                         onClick={markAllNotificationsRead}
                         className="text-[10px] underline text-gold-lt hover:text-white"
                       >
-                        Mark all read
+                        {language === 'te' ? 'అన్నీ చదివినట్లు గుర్తించు' : 'Mark all read'}
                       </button>
                     )}
                   </div>
                   <div className="px-3.5 py-2 bg-amber-50/90 border-b border-gold/20 flex items-center justify-between gap-2 text-[11px]">
                     {pushPermission === 'granted' && pushEnabled ? (
                       <>
-                        <span className="text-green-800 font-semibold">🔔 Push Alerts Active</span>
+                        <span className="text-green-800 font-semibold">
+                          🔔 {language === 'te' ? 'పుష్ అలర్ట్స్ ఆన్‌లో ఉన్నాయి' : 'Push Alerts Active'}
+                        </span>
                         <button
                           type="button"
                           onClick={sendTestPush}
                           className="px-2 py-0.5 bg-maroon text-gold-pale rounded text-[10px] font-bold hover:bg-maroon-md"
                         >
-                          Test Push
+                          {language === 'te' ? 'పరీక్ష' : 'Test Push'}
                         </button>
                       </>
                     ) : (
                       <>
-                        <span className="text-maroon font-medium">Get live ceremony &amp; arrival alerts</span>
+                        <span className="text-maroon font-medium">
+                          {language === 'te' ? 'తక్షణ పూజ & పురోహిత అలర్ట్స్ పొందండి' : 'Get live ceremony & arrival alerts'}
+                        </span>
                         <button
                           type="button"
                           onClick={requestPushPermission}
                           className="px-2.5 py-1 bg-maroon text-gold-pale rounded text-[10px] font-bold hover:bg-maroon-md shrink-0"
                         >
-                          Enable Push
+                          {language === 'te' ? 'ఆన్ చేయండి' : 'Enable Push'}
                         </button>
                       </>
                     )}
@@ -370,7 +388,7 @@ export const Navbar: React.FC = () => {
 
           <div className="bg-white border border-gold/30 rounded-md p-3">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-maroon mb-1.5 flex items-center gap-1">
-              <Globe size={12} /> Pan-India Language (14)
+              <Globe size={12} /> {language === 'te' ? 'భాష (తెలుగు / English)' : 'Language (English / తెలుగు)'}
             </label>
             <select
               value={language}

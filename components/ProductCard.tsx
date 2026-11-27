@@ -2,6 +2,7 @@ import React from 'react';
 import { Product } from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { ShoppingBag, Eye } from 'lucide-react';
+import { localizeDynamic } from '../i18n/languages';
 
 interface Props {
   product: Product;
@@ -17,7 +18,7 @@ export const ProductCard: React.FC<Props> = ({ product, onQuickView }) => {
       {/* Minimal Badge */}
       {product.badge && (
         <div className="absolute top-4 left-4 z-10 font-cinzel text-[0.55rem] font-bold tracking-[0.2em] uppercase px-3 py-1 bg-white/90 backdrop-blur-sm text-maroon border border-gold/20 shadow-sm">
-          {product.badge.text}
+          {localizeDynamic(product.badge.text, language)}
         </div>
       )}
 
@@ -69,7 +70,9 @@ export const ProductCard: React.FC<Props> = ({ product, onQuickView }) => {
         </div>
         
         {product.stock < 10 && product.stock > 0 && (
-          <div className="text-[0.6rem] text-red-500 font-bold mt-2 tracking-widest uppercase">Only {product.stock} left</div>
+          <div className="text-[0.6rem] text-red-500 font-bold mt-2 tracking-widest uppercase">
+            {language === 'te' ? `కేవలం ${product.stock} మాత్రమే ఉన్నాయి` : `Only ${product.stock} left`}
+          </div>
         )}
       </div>
     </div>

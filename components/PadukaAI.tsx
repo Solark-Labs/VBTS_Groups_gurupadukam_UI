@@ -6,8 +6,10 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../contexts/AppContext';
 import { POOJA_OCCASIONS, BRAND_CONTACT } from '../constants';
-import { TicketCategory, SupportTicket } from '../types';
+import { TicketCategory, SupportTicket, Booking } from '../types';
 import { PAN_INDIA_LANGUAGES, LanguageCode, getLanguageMeta } from '../i18n/languages';
+import { CashfreeOrderResponse, createCashfreeTokenOrder } from '../services/paymentService';
+import { CashfreeCheckoutModal } from './CashfreeCheckoutModal';
 
 interface ChatMsg {
   sender: 'ai' | 'user';
@@ -60,6 +62,10 @@ export const PadukaAI: React.FC = () => {
   const [qbPhone, setQbPhone] = useState(user?.phone || '');
   const [qbAddress, setQbAddress] = useState(user?.address || '');
   const [qbConfirmedId, setQbConfirmedId] = useState<string | null>(null);
+  const [pendingCashfree, setPendingCashfree] = useState<{
+    order: CashfreeOrderResponse;
+    bookingDraft: Booking;
+  } | null>(null);
 
   // Incident / Ticket state
   const [incBookingId, setIncBookingId] = useState('');
@@ -90,12 +96,11 @@ export const PadukaAI: React.FC = () => {
         lower.includes(l.nativeName.toLowerCase())
     );
 
-    if (lower.includes('language') || lower.includes('bhasha') || lower.includes('भाषा') || lower.includes('భాష') || lower.includes('மொழி')) {
-      const list = PAN_INDIA_LANGUAGES.map(l => `${l.nativeName} (${l.name})`).join(', ');
+    if (lower.includes('language') || lower.includes('bhasha') || lower.includes('భాష')) {
       reply = {
         sender: 'ai',
-        text: `${langMeta.greeting} PadukaAI & Guru Padukam support all 14 Pan-India languages: ${list}. You can switch anytime from the header dropdown or your Profile → Language tab!`,
-        actionLabel: 'Open Language Settings',
+        text: `${langMeta.greeting} PadukaAI & Guru Padukam are 100% fluent in English & తెలుగు (Telugu)! You can switch anytime from the top selector or Profile → Language tab.`,
+        actionLabel: language === 'te' ? 'భాష సెట్టింగ్స్' : 'Open Language Settings',
         actionRoute: '/profile',
       };
     } else if (matchedLang && (lower.includes('speak') || lower.includes('switch') || lower.includes('change') || lower.includes('bolo') || lower.includes('in ') || lower === matchedLang.name.toLowerCase())) {
@@ -165,7 +170,7 @@ export const PadukaAI: React.FC = () => {
     if (!customQuery) setInput('');
   };
 
-  const handleQuickBook = (e: React.FormEvent) => {
+  const handleQuickBook = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = (qbPhone || user?.phone || '').replace(/\D/g, '');
     if (cleanPhone.length < 10) {
@@ -174,7 +179,7 @@ export const PadukaAI: React.FC = () => {
     }
     const chosenPurohit = purohits.find(p => p.id === qbPurohitId) || purohits[0];
     const id = 'BKG' + Math.floor(100000 + Math.random() * 900000);
-    createBooking({
+    const draft: Booking = {
       id,
       userId: user?.id || `guest_${cleanPhone}`,
       userName: qbName || user?.name || 'Devotee',
@@ -189,17 +194,24 @@ export const PadukaAI: React.FC = () => {
       address: qbAddress || user?.address || 'Khammam',
       city: user?.city || 'Khammam',
       pincode: user?.pincode || '507002',
-      status: 'Confirmed',
+      status: 'Awaiting Purohit Approval',
       total: BRAND_CONTACT.bookingTokenFee,
+      paymentMethod: 'Cashfree',
       samagriMode: 'marketplace-30min',
       shipBefore30Min: true,
       handoffStatus: 'none',
       locality: user?.city || 'Khammam',
       whatsappDispatchStatus: 'Scheduled',
       reminderHoursBefore: 2,
+    };
+
+    const cfOrder = await createCashfreeTokenOrder({
+      bookingRef: id,
+      customerName: draft.userName,
+      customerPhone: cleanPhone,
+      customerEmail: draft.userEmail,
     });
-    setQbConfirmedId(id);
-    addToast(`Booked ${chosenPurohit.name} (${id})! Purohit will contact you shortly.`, 'success');
+    setPendingCashfree({ order: cfOrder, bookingDraft: draft });
   };
 
   const handleIncidentSubmit = (e: React.FormEvent) => {
@@ -350,7 +362,10 @@ export const PadukaAI: React.FC = () => {
 
                 {/* Quick Chips */}
                 <div className="flex flex-wrap gap-1.5 pt-2">
-                  {['Apara / Last Rites', 'Purohit Delayed', '30-min Pooja Items', 'Supported Languages', 'Track Booking'].map(chip => (
+                  {(language === 'te'
+                    ? ['అపర కర్మలు', 'పురోహితుడు ఆలస్యం', '30-నిమిషాల పూజా సామగ్రి', 'English / తెలుగు', 'బుకింగ్ ట్రాక్']
+                    : ['Apara / Last Rites', 'Purohit Delayed', '30-min Pooja Items', 'Language (EN / TE)', 'Track Booking']
+                  ).map(chip => (
                     <button
                       key={chip}
                       type="button"
@@ -582,6 +597,33 @@ export const PadukaAI: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {pendingCashfree && (
+        <CashfreeCheckoutModal
+          order={pendingCashfree.order}
+          bookingRef={pendingCashfree.bookingDraft.id}
+          userId={pendingCashfree.bookingDraft.userId}
+          customerName={pendingCashfree.bookingDraft.userName}
+          customerPhone={pendingCashfree.bookingDraft.userPhone}
+          description={`PadukaAI Priest Booking: ${pendingCashfree.bookingDraft.occasion} (${pendingCashfree.bookingDraft.purohitName})`}
+          onSuccess={({ cfOrderId, cfPaymentId }) => {
+            const finalized: Booking = {
+              ...pendingCashfree.bookingDraft,
+              paymentStatus: 'Verified',
+              cashfreeOrderId: cfOrderId,
+              cashfreePaymentId: cfPaymentId,
+            };
+            createBooking(finalized);
+            setQbConfirmedId(finalized.id);
+            addToast(`₹11 Cashfree Payment Verified! Sent to ${finalized.purohitName}.`, 'success');
+            setPendingCashfree(null);
+          }}
+          onCancel={(reason) => {
+            setPendingCashfree(null);
+            addToast(reason || 'Payment cancelled — booking was NOT confirmed.', 'error');
+          }}
+        />
       )}
     </>
   );

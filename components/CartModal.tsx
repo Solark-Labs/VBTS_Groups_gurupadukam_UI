@@ -7,7 +7,8 @@ import { LocationPicker, buildGeoLocation } from './LocationPicker';
 import { Order, GeoLocation } from '../types';
 
 export const CartModal: React.FC = () => {
-  const { isCartOpen, setCartOpen, cart, updateCartQty, removeFromCart, cartTotal, user, placeOrder, addToast } = useAppContext();
+  const { isCartOpen, setCartOpen, cart, updateCartQty, removeFromCart, cartTotal, user, placeOrder, addToast, language } = useAppContext();
+  const isTe = language === 'te';
   const navigate = useNavigate();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [paymentStep, setPaymentStep] = useState<'cart' | 'shipping' | 'upi' | 'success'>('cart');
@@ -114,12 +115,12 @@ export const CartModal: React.FC = () => {
               )}
               <h2 className="font-cinzel text-xl font-bold text-maroon">
                 {paymentStep === 'cart'
-                  ? 'Your Divine Cart'
+                  ? (isTe ? 'మీ పూజా కార్ట్' : 'Your Divine Cart')
                   : paymentStep === 'shipping'
-                  ? 'Delivery Address'
+                  ? (isTe ? 'డెలివరీ చిరునామా' : 'Delivery Address')
                   : paymentStep === 'upi'
-                  ? 'Secure UPI Checkout'
-                  : 'Order Confirmed'}
+                  ? (isTe ? 'సురక్షిత UPI చెల్లింపు' : 'Secure UPI Checkout')
+                  : (isTe ? 'ఆర్డర్ నిర్ధారించబడింది' : 'Order Confirmed')}
               </h2>
             </div>
             <button onClick={closeAndReset} className="text-maroon hover:text-gold transition-colors">
@@ -142,7 +143,7 @@ export const CartModal: React.FC = () => {
                 {cart.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-text-md opacity-60">
                     <ShoppingCartIcon className="w-16 h-16 mb-4 text-gold" />
-                    <p className="font-cinzel text-lg">Your cart is empty</p>
+                    <p className="font-cinzel text-lg">{isTe ? 'మీ కార్ట్ ఖాళీగా ఉంది' : 'Your cart is empty'}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-6">

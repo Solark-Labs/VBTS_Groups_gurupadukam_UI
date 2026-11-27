@@ -6,6 +6,7 @@ import {
 import { useAppContext } from '../contexts/AppContext';
 import { Order, Booking, AparaBooking } from '../types';
 import { InvoiceModal } from '../components/InvoiceModal';
+import { BookingDetailsModal } from '../components/BookingDetailsModal';
 import {
   buildPurohitWhatsAppUrl,
   getBookingMapDirectionsUrl,
@@ -35,6 +36,11 @@ export const TrackOrder: React.FC = () => {
   const [matchedBookings, setMatchedBookings] = useState<Booking[]>([]);
   const [matchedApara, setMatchedApara] = useState<AparaBooking[]>([]);
   const [showInvoiceOrder, setShowInvoiceOrder] = useState<Order | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<{
+    booking?: Booking;
+    apara?: AparaBooking;
+    order?: Order;
+  } | null>(null);
 
   // 2-Day Prior Apara Food Edit State
   const [editingAparaId, setEditingAparaId] = useState<string | null>(null);
@@ -177,8 +183,16 @@ export const TrackOrder: React.FC = () => {
               {displayBookings.map(b => {
                 const mapUrl = getBookingMapDirectionsUrl(b);
                 const reminder = getReminderWindowInfo(b.date, b.time, b.reminderHoursBefore || 2);
+                const latestEvent = b.timeline && b.timeline.length > 0 ? b.timeline[b.timeline.length - 1] : null;
                 return (
-                  <div key={b.id} className="bg-white p-5 border border-gold/25 rounded-sm shadow-sm space-y-3">
+                  <div
+                    key={b.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedDetail({ booking: b })}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDetail({ booking: b }); } }}
+                    className="bg-white p-5 border border-gold/25 hover:border-gold rounded-sm shadow-sm hover:shadow-md transition-all space-y-3 cursor-pointer"
+                  >
                     <div className="flex justify-between items-start gap-3 flex-wrap">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -208,13 +222,19 @@ export const TrackOrder: React.FC = () => {
                           <MapPin size={13} className="text-maroon shrink-0" />
                           <span>{b.address}, {b.city} – {b.pincode}</span>
                         </span>
-                        <a href={mapUrl} target="_blank" rel="noreferrer" className="text-maroon font-bold hover:underline inline-flex items-center gap-1">
+                        <a
+                          href={mapUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="text-maroon font-bold hover:underline inline-flex items-center gap-1"
+                        >
                           View Google Map <ExternalLink size={11} />
                         </a>
                       </div>
-                      {b.shipBefore30Min && (
-                        <div className="text-green-800 font-medium">
-                          ⚡ Samagri / Pooja Items: Scheduled for express shipping 30 minutes before ceremony.
+                      {latestEvent && (
+                        <div className="text-[11px] text-maroon font-medium pt-1">
+                          <strong>Latest Action:</strong> {latestEvent.actor} — {latestEvent.action}
                         </div>
                       )}
                     </div>
@@ -222,20 +242,31 @@ export const TrackOrder: React.FC = () => {
                     <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
                       <button
                         type="button"
-                        onClick={() => handleReportDelay(b.id, b.userPhone, b.userName, b.occasion)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleReportDelay(b.id, b.userPhone, b.userName, b.occasion);
+                        }}
                         className="inline-flex items-center gap-1.5 border border-red-300 bg-red-50 text-red-700 text-xs font-bold px-3 py-2 rounded-sm hover:bg-red-100 transition-colors"
                       >
                         <AlertTriangle size={13} /> Report Delay / Issue
                       </button>
-                      <a
-                        href={buildPurohitWhatsAppUrl(b)}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={() => markBookingWhatsappSent(b.id)}
-                        className="inline-flex items-center gap-1.5 bg-[#25D366] hover:bg-[#1fb858] text-white text-xs font-bold px-3.5 py-2 rounded-sm shadow-sm transition-colors"
-                      >
-                        <MessageCircle size={14} /> Send Map to Purohit WhatsApp
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={buildPurohitWhatsAppUrl(b)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={e => {
+                            e.stopPropagation();
+                            markBookingWhatsappSent(b.id);
+                          }}
+                          className="inline-flex items-center gap-1.5 bg-[#25D366] hover:bg-[#1fb858] text-white text-xs font-bold px-3.5 py-2 rounded-sm shadow-sm transition-colors"
+                        >
+                          <MessageCircle size={14} /> Send Map to Purohit WhatsApp
+                        </a>
+                        <span className="text-[11px] font-bold text-maroon underline px-1">
+                          Full View &amp; Timeline →
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -256,7 +287,14 @@ export const TrackOrder: React.FC = () => {
                 const editable = canCustomizeFood2DaysPrior(ab);
                 const isEditing = editingAparaId === ab.id;
                 return (
-                  <div key={ab.id} className="bg-white p-5 border border-gold/25 rounded-sm shadow-sm space-y-3">
+                  <div
+                    key={ab.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedDetail({ apara: ab })}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDetail({ apara: ab }); } }}
+                    className="bg-white p-5 border border-gold/25 hover:border-gold rounded-sm shadow-sm hover:shadow-md transition-all space-y-3 cursor-pointer"
+                  >
                     <div className="flex justify-between items-start gap-3 flex-wrap">
                       <div>
                         <div className="flex items-center gap-2">
@@ -283,7 +321,11 @@ export const TrackOrder: React.FC = () => {
                     <div className="text-xs text-text-md bg-cream/60 p-3 rounded-sm border border-gold/15 space-y-1">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <span><strong>Revealed Peeta Phone:</strong> +{ab.peetaPhone.slice(0, 2)} {ab.peetaPhone.slice(2)}</span>
-                        <a href={`tel:+${ab.peetaPhone}`} className="inline-flex items-center gap-1 text-maroon font-bold hover:underline">
+                        <a
+                          href={`tel:+${ab.peetaPhone}`}
+                          onClick={e => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-maroon font-bold hover:underline"
+                        >
                           <Phone size={11} /> Call Peeta
                         </a>
                       </div>
@@ -296,7 +338,7 @@ export const TrackOrder: React.FC = () => {
 
                     {/* 2-Day Prior Food Customization Editor */}
                     {isEditing && (
-                      <div className="bg-ivory border border-gold/30 p-3.5 rounded-sm space-y-2.5">
+                      <div onClick={e => e.stopPropagation()} className="bg-ivory border border-gold/30 p-3.5 rounded-sm space-y-2.5">
                         <div className="text-xs font-bold text-maroon">Customize Food (Allowed up to 2 days prior: {ab.foodEditableUntil || 'Before ceremony'})</div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <input
@@ -361,7 +403,8 @@ export const TrackOrder: React.FC = () => {
                         {ab.foodPackage === 'with-food' && editable && !isEditing && (
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={e => {
+                              e.stopPropagation();
                               setEditingAparaId(ab.id);
                               setEditAttendees(ab.attendeeCount);
                               setEditMenu(ab.foodMenuType || '');
@@ -375,7 +418,8 @@ export const TrackOrder: React.FC = () => {
                         )}
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={e => {
+                            e.stopPropagation();
                             createTicket({
                               bookingId: ab.id,
                               userName: ab.userName,
@@ -396,7 +440,10 @@ export const TrackOrder: React.FC = () => {
                         href={buildAparaOrganizerWhatsAppUrl(ab)}
                         target="_blank"
                         rel="noreferrer"
-                        onClick={() => markAparaWhatsappSent(ab.id)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          markAparaWhatsappSent(ab.id);
+                        }}
                         className="inline-flex items-center gap-1.5 bg-[#25D366] hover:bg-[#1fb858] text-white text-xs font-bold px-3.5 py-2 rounded-sm shadow-sm transition-colors"
                       >
                         <MessageCircle size={14} /> Send 1-Day Prior Checklist
@@ -417,7 +464,14 @@ export const TrackOrder: React.FC = () => {
             </h3>
             <div className="grid gap-4">
               {displayOrders.map(order => (
-                <div key={order.id} className="bg-white p-6 border border-gold/20 shadow-sm rounded-sm space-y-4">
+                <div
+                  key={order.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedDetail({ order })}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDetail({ order }); } }}
+                  className="bg-white p-6 border border-gold/20 hover:border-gold shadow-sm hover:shadow-md transition-all rounded-sm space-y-4 cursor-pointer"
+                >
                   <div className="flex justify-between items-center border-b border-gold/10 pb-3">
                     <div>
                       <p className="font-cinzel text-lg font-bold text-maroon">{order.id}</p>
@@ -426,7 +480,8 @@ export const TrackOrder: React.FC = () => {
                     <div className="text-right flex items-center gap-3">
                       <span className="font-cinzel text-lg font-bold text-maroon">₹{order.total}</span>
                       <button
-                        onClick={() => setShowInvoiceOrder(order)}
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setShowInvoiceOrder(order); }}
                         className="flex items-center gap-1 text-xs font-cinzel font-bold text-gold-dk bg-gold/10 px-3 py-1.5 rounded-sm border border-gold/30"
                       >
                         <FileText size={14} /> Invoice
@@ -453,6 +508,30 @@ export const TrackOrder: React.FC = () => {
                       </div>
                       <span className="text-[11px] font-bold">Delivered</span>
                     </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-gold/15 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="text-text-md">
+                      Fulfilled by Partner Store Owner · Need help? Click card to view items or escalate.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        createTicket({
+                          bookingId: order.id,
+                          userName: order.userName,
+                          userPhone: order.userPhone,
+                          category: 'Samagri / Essentials',
+                          severity: 'Urgent',
+                          description: `Merchant Mediation requested for Marketplace Order ${order.id} (₹${order.total}).`,
+                        });
+                        addToast(`Support ticket raised for ${order.id} — Guru Padukam team will contact the store merchant!`, 'info');
+                      }}
+                      className="inline-flex items-center gap-1.5 border border-maroon/30 bg-cream text-maroon text-xs font-bold px-3 py-1.5 rounded-sm hover:bg-gold/15"
+                    >
+                      <AlertTriangle size={12} /> Escalate Order Concern to Store
+                    </button>
                   </div>
                 </div>
               ))}
@@ -488,6 +567,32 @@ export const TrackOrder: React.FC = () => {
 
       {showInvoiceOrder && (
         <InvoiceModal order={showInvoiceOrder} onClose={() => setShowInvoiceOrder(null)} />
+      )}
+
+      {selectedDetail && (
+        <BookingDetailsModal
+          booking={
+            selectedDetail.booking
+              ? bookings.find(b => b.id === selectedDetail.booking?.id) || selectedDetail.booking
+              : null
+          }
+          aparaBooking={
+            selectedDetail.apara
+              ? aparaBookings.find(a => a.id === selectedDetail.apara?.id) || selectedDetail.apara
+              : null
+          }
+          order={
+            selectedDetail.order
+              ? orders.find(o => o.id === selectedDetail.order?.id) || selectedDetail.order
+              : null
+          }
+          viewerRole="Devotee"
+          onClose={() => setSelectedDetail(null)}
+          onOpenInvoice={ord => {
+            setSelectedDetail(null);
+            setShowInvoiceOrder(ord);
+          }}
+        />
       )}
     </div>
   );

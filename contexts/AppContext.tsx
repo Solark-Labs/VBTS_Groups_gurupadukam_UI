@@ -1,9 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import {
-  Product, CartItem, User, Order, ToastMessage, Purohit, Booking,
+  Product, CartItem, User, Order, ToastMessage, Purohit, Booking, WalletTransaction, BookingTimelineEvent,
   GeoLocation, AparaPeeta, AparaBooking, AparaReview, SupportTicket, EventNotification, RegistrationData
 } from '../types';
 import { firebaseMock } from '../services/firebaseMock';
+import {
+  syncBookingCreateToBackend,
+  syncBookingNoteToBackend,
+  syncDevoteeCancelToBackend,
+  syncPurohitActionToBackend,
+  syncPurohitKycToBackend,
+} from '../services/paymentService';
+import { getBookingCancellationPolicy } from '../utils/bookingRules';
 import { PUROHITS, APARA_PEETAS } from '../constants';
 import { LanguageCode, TranslationKeys, getTranslation } from '../i18n/languages';
 
@@ -41,11 +49,25 @@ interface AppContextType {
   placeOrder: (shippingDetails?: { name: string; phone: string; address: string; location?: GeoLocation }) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
 
-  // Purohits & Bookings
+  // Wallet, Purohits & Bookings
+  walletBalance: number;
+  walletTransactions: WalletTransaction[];
+  debitWalletForBooking: (amount: number, reason: string, bookingId: string) => boolean;
   purohits: Purohit[];
   bookings: Booking[];
   createBooking: (booking: Booking) => void;
   updateBookingStatus: (bookingId: string, status: Booking['status']) => void;
+  purohitRespondToBooking: (
+    bookingId: string,
+    action: 'accept' | 'reject',
+    options?: string | { reason?: string; finalDate?: string; finalTime?: string; nakshatram?: string }
+  ) => void;
+  rescheduleBooking: (bookingId: string, newDate: string, newTime: string, reason?: string) => void;
+  updateBookingNoteAndAdvance: (
+    bookingId: string,
+    params: { actor: 'Devotee' | 'Purohit'; note?: string; advancePaidToPurohit?: number; acknowledgeAdvance?: boolean }
+  ) => void;
+  requestDevoteeCancellation: (bookingId: string, reason: string) => void;
   markBookingWhatsappSent: (bookingId: string) => void;
   requestBookingHandoff: (bookingId: string, reason: string) => void;
   acceptBookingHandoff: (bookingId: string, newPurohit: Purohit) => void;
@@ -96,12 +118,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (savedUser) {
       try {
         const parsed = JSON.parse(savedUser);
-        if (parsed.preferredLanguage) return parsed.preferredLanguage as LanguageCode;
+        if (parsed.preferredLanguage === 'te' || parsed.preferredLanguage === 'en') {
+          return parsed.preferredLanguage;
+        }
       } catch {
         // ignore parse error
       }
     }
-    return (localStorage.getItem('gp_lang') as LanguageCode) || 'en';
+    const stored = localStorage.getItem('gp_lang');
+    return stored === 'te' ? 'te' : 'en';
   });
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -177,7 +202,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const existingUser = await firebaseMock.auth.login(email, phone);
       setUser(existingUser);
       localStorage.setItem('gp_user', JSON.stringify(existingUser));
-      if (existingUser.preferredLanguage) {
+      if (existingUser.preferredLanguage === 'te' || existingUser.preferredLanguage === 'en') {
         setLanguageState(existingUser.preferredLanguage);
         localStorage.setItem('gp_lang', existingUser.preferredLanguage);
       }
@@ -195,9 +220,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const newUser = await firebaseMock.auth.register(data);
       setUser(newUser);
       localStorage.setItem('gp_user', JSON.stringify(newUser));
-      if (newUser.preferredLanguage) {
+      if (newUser.preferredLanguage === 'te' || newUser.preferredLanguage === 'en') {
         setLanguageState(newUser.preferredLanguage);
         localStorage.setItem('gp_lang', newUser.preferredLanguage);
+      }
+      if (newUser.role === 'purohit' && newUser.kycVerified && newUser.aadhaarLast4 && newUser.kycCfPaymentId) {
+        syncPurohitKycToBackend({
+          email: newUser.email,
+          name: newUser.name,
+          phone: newUser.phone,
+          aadhaarLast4: newUser.aadhaarLast4,
+          kycCfOrderId: newUser.kycCfOrderId || '',
+          kycCfPaymentId: newUser.kycCfPaymentId,
+          readyToShowVerification: Boolean(newUser.readyToShowVerification),
+          vedicSampradaya: newUser.vedicSampradaya,
+        });
       }
       addToast(`Namaste ${newUser.name}, your account is registered!`, 'success');
     } catch (error) {
@@ -383,15 +420,97 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addToast(`Ticket ${ticketId} marked as ${status}.`, 'success');
   };
 
-  // --- Bookings ---
+  // --- Wallet & Bookings ---
+  const walletBalance = user?.walletBalance || 0;
+  const walletTransactions: WalletTransaction[] = user?.walletTransactions || [];
+
+  const creditUserWallet = useCallback(
+    (targetEmail: string, targetUserId: string, amount: number, reason: string, bookingId: string) => {
+      const tx: WalletTransaction = {
+        id: `WLT${Date.now()}`,
+        amount,
+        type: 'credit',
+        reason,
+        bookingId,
+        paymentMethod: 'Cashfree',
+        createdAt: new Date().toISOString(),
+      };
+
+      const savedUsers: Record<string, User> = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
+      const normalized = targetEmail.trim().toLowerCase();
+      const matchedKey =
+        (savedUsers[normalized] && normalized) ||
+        Object.keys(savedUsers).find(k => savedUsers[k]?.id === targetUserId);
+
+      if (matchedKey && savedUsers[matchedKey]) {
+        const u = savedUsers[matchedKey];
+        savedUsers[matchedKey] = {
+          ...u,
+          walletBalance: (u.walletBalance || 0) + amount,
+          walletTransactions: [tx, ...(u.walletTransactions || [])],
+        };
+        localStorage.setItem('gp_fb_users', JSON.stringify(savedUsers));
+      }
+
+      setUser(prev => {
+        if (!prev) return prev;
+        if (prev.email.toLowerCase() !== normalized && prev.id !== targetUserId) return prev;
+        const updated: User = {
+          ...prev,
+          walletBalance: (prev.walletBalance || 0) + amount,
+          walletTransactions: [tx, ...(prev.walletTransactions || [])],
+        };
+        localStorage.setItem('gp_user', JSON.stringify(updated));
+        return updated;
+      });
+    },
+    []
+  );
+
+  const debitWalletForBooking = useCallback(
+    (amount: number, reason: string, bookingId: string): boolean => {
+      if (!user || (user.walletBalance || 0) < amount) return false;
+      const tx: WalletTransaction = {
+        id: `WLT${Date.now()}`,
+        amount,
+        type: 'debit',
+        reason,
+        bookingId,
+        paymentMethod: 'Wallet',
+        createdAt: new Date().toISOString(),
+      };
+      const updated: User = {
+        ...user,
+        walletBalance: (user.walletBalance || 0) - amount,
+        walletTransactions: [tx, ...(user.walletTransactions || [])],
+      };
+      setUser(updated);
+      localStorage.setItem('gp_user', JSON.stringify(updated));
+      firebaseMock.auth.updateUser(updated);
+      return true;
+    },
+    [user]
+  );
+
   const createBooking = (booking: Booking) => {
-    setBookings(prev => [booking, ...prev]);
-    firebaseMock.db.saveBooking(booking);
+    const initialTimeline: BookingTimelineEvent[] = booking.timeline || [
+      {
+        id: `TL_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actor: 'System',
+        action: `₹11 Token Verified (${booking.paymentMethod || 'Cashfree'})`,
+        details: `${booking.occasion} on ${booking.date} (${booking.time}) · Sent to ${booking.purohitName}`,
+      },
+    ];
+    const enriched: Booking = { ...booking, timeline: initialTimeline };
+    setBookings(prev => [enriched, ...prev]);
+    firebaseMock.db.saveBooking(enriched);
+    syncBookingCreateToBackend(enriched);
     triggerNotification({
-      title: `Booking Confirmed: ${booking.id}`,
-      message: `${booking.occasion} on ${booking.date} (${booking.time}) with ${booking.purohitName}. Guru Padukam support active!`,
+      title: `₹11 Payment Verified · Request Sent (${enriched.id})`,
+      message: `${enriched.occasion} on ${enriched.date} (${enriched.time}) sent to ${enriched.purohitName} (${enriched.paymentMethod || 'Cashfree'}).`,
       type: 'success',
-      bookingId: booking.id,
+      bookingId: enriched.id,
     });
   };
 
@@ -399,6 +518,268 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status } : b));
     firebaseMock.db.updateBookingStatus(bookingId, status);
     addToast(`Booking ${bookingId} marked as ${status}.`, 'success');
+  };
+
+  const purohitRespondToBooking = (
+    bookingId: string,
+    action: 'accept' | 'reject',
+    options?: string | { reason?: string; finalDate?: string; finalTime?: string; nakshatram?: string }
+  ) => {
+    const target = bookings.find(b => b.id === bookingId);
+    if (!target) return;
+
+    const opts = typeof options === 'string' ? { reason: options } : options || {};
+
+    if (action === 'accept') {
+      const finalDate = opts.finalDate || target.date;
+      const finalTime = opts.finalTime || target.time;
+      const nakshatram = opts.nakshatram?.trim();
+      const teamAction = 'Guru Padukam Team Active: Reminders & 30-Min Pooja Essentials Scheduled';
+      const finalizedAt = new Date().toISOString();
+
+      const tlEvent: BookingTimelineEvent = {
+        id: `TL_${Date.now()}`,
+        timestamp: finalizedAt,
+        actor: 'Purohit',
+        action: 'Muhurtham Finalized Post Devotee Call',
+        details: `${finalDate} at ${finalTime}${nakshatram ? ` · ${nakshatram}` : ''} → ${teamAction}`,
+      };
+
+      setBookings(prev => {
+        const next = prev.map(b =>
+          b.id === bookingId
+            ? {
+                ...b,
+                date: finalDate,
+                time: finalTime,
+                nakshatram: nakshatram || b.nakshatram,
+                muhurthamFinalized: true,
+                muhurthamFinalizedAt: finalizedAt,
+                guruPadukamTeamAction: teamAction,
+                status: 'Muhurtham Finalized' as const,
+                timeline: [...(b.timeline || []), tlEvent],
+              }
+            : b
+        );
+        firebaseMock.db.saveBookingsList(next);
+        return next;
+      });
+
+      syncPurohitActionToBackend({
+        bookingId,
+        userId: target.userId,
+        action: 'accept_finalize',
+        finalDate,
+        finalTime,
+        nakshatram,
+      });
+
+      triggerNotification({
+        title: `Muhurtham Finalized! (${bookingId})`,
+        message: `${target.purohitName} finalized ${finalDate} at ${finalTime}${nakshatram ? ` (${nakshatram})` : ''}. ${teamAction}!`,
+        type: 'success',
+        bookingId,
+      });
+      addToast(`Muhurtham finalized for ${bookingId}! Guru Padukam team notified for reminders & essentials.`, 'success');
+    } else {
+      const rejectReason = opts.reason?.trim();
+      if (!rejectReason) {
+        addToast('Please specify a valid reason before cancelling.', 'error');
+        return;
+      }
+      const tlCancel: BookingTimelineEvent = {
+        id: `TL_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actor: 'Purohit',
+        action: 'Cancelled Prior to Ritual · ₹11 Credited to Wallet',
+        details: rejectReason,
+      };
+      setBookings(prev => {
+        const next = prev.map(b =>
+          b.id === bookingId
+            ? {
+                ...b,
+                status: 'Rejected by Purohit' as const,
+                purohitActionReason: rejectReason,
+                refundCreditedToWallet: true,
+                timeline: [...(b.timeline || []), tlCancel],
+              }
+            : b
+        );
+        firebaseMock.db.saveBookingsList(next);
+        return next;
+      });
+      if (!target.refundCreditedToWallet) {
+        creditUserWallet(
+          target.userEmail,
+          target.userId,
+          target.total || 11,
+          `₹${target.total || 11} Wallet Credit — ${target.purohitName} cancelled (${rejectReason})`,
+          bookingId
+        );
+      }
+      syncPurohitActionToBackend({ bookingId, userId: target.userId, action: 'reject', reason: rejectReason });
+      triggerNotification({
+        title: `Purohit Cancelled · ₹11 Credited to Wallet (${bookingId})`,
+        message: `${target.purohitName} cancelled (${rejectReason}). Choose the next available Purohit with the same ₹11 or contact Guru Padukam directly!`,
+        type: 'warning',
+        bookingId,
+      });
+      addToast(`Booking ${bookingId} cancelled (${rejectReason}) — ₹11 credited to Devotee Wallet!`, 'info');
+    }
+  };
+
+  const rescheduleBooking = (bookingId: string, newDate: string, newTime: string, reason?: string) => {
+    const target = bookings.find(b => b.id === bookingId);
+    if (!target) return;
+    const evalPolicy = getBookingCancellationPolicy(target);
+    const tlSwap: BookingTimelineEvent = {
+      id: `TL_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      actor: 'Devotee',
+      action: evalPolicy.isMajorCeremony
+        ? 'Major Event Date Swap Routed to Purohit & Admin'
+        : 'Ceremony Date / Time Swapped (Routed to Purohit & Admin)',
+      details: `${newDate} at ${newTime}${reason ? ` · Reason: ${reason}` : ''}`,
+    };
+    setBookings(prev => {
+      const next = prev.map(b =>
+        b.id === bookingId
+          ? {
+              ...b,
+              date: newDate,
+              time: newTime,
+              rescheduleCount: (b.rescheduleCount || 0) + 1,
+              notes: reason ? `${b.notes ? b.notes + ' | ' : ''}Swapped Date: ${reason}` : b.notes,
+              cancellationRoutedTo: ['Purohit', 'Admin'] as ('Purohit' | 'Admin')[],
+              timeline: [...(b.timeline || []), tlSwap],
+            }
+          : b
+      );
+      firebaseMock.db.saveBookingsList(next);
+      return next;
+    });
+    syncPurohitActionToBackend({ bookingId, userId: target.userId, action: 'reschedule', finalDate: newDate, finalTime: newTime, reason });
+    triggerNotification({
+      title: `Date Swap Routed to Purohit & Admin (${bookingId})`,
+      message: `${target.occasion} swapped to ${newDate} at ${newTime} at ₹0 extra token fee.`,
+      type: 'info',
+      bookingId,
+    });
+    addToast(`Booking ${bookingId} swapped to ${newDate} (${newTime}) & routed to Purohit and Admin!`, 'success');
+  };
+
+  const updateBookingNoteAndAdvance = (
+    bookingId: string,
+    params: { actor: 'Devotee' | 'Purohit'; note?: string; advancePaidToPurohit?: number; acknowledgeAdvance?: boolean }
+  ) => {
+    const target = bookings.find(b => b.id === bookingId);
+    if (!target) return;
+    const tlEntry: BookingTimelineEvent = {
+      id: `TL_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      actor: params.actor,
+      action: params.acknowledgeAdvance
+        ? `Direct Advance / Settlement Acknowledged by ${params.actor}`
+        : `Booking Notes / Advance Details Updated by ${params.actor}`,
+      details: [
+        params.note ? `Notes: ${params.note}` : null,
+        typeof params.advancePaidToPurohit === 'number'
+          ? `Direct Purohit Advance Recorded: ₹${params.advancePaidToPurohit}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    };
+
+    setBookings(prev => {
+      const next = prev.map(b => {
+        if (b.id !== bookingId) return b;
+        return {
+          ...b,
+          notes: params.note !== undefined ? params.note : b.notes,
+          advancePaidToPurohit:
+            typeof params.advancePaidToPurohit === 'number'
+              ? params.advancePaidToPurohit
+              : b.advancePaidToPurohit,
+          advanceAcknowledgedByDevotee:
+            params.acknowledgeAdvance && params.actor === 'Devotee'
+              ? true
+              : b.advanceAcknowledgedByDevotee,
+          advanceAcknowledgedByPurohit:
+            params.acknowledgeAdvance && params.actor === 'Purohit'
+              ? true
+              : b.advanceAcknowledgedByPurohit,
+          timeline: [...(b.timeline || []), tlEntry],
+        };
+      });
+      firebaseMock.db.saveBookingsList(next);
+      return next;
+    });
+
+    syncBookingNoteToBackend({ bookingId, ...params });
+    if (params.acknowledgeAdvance) {
+      triggerNotification({
+        title: `Advance Acknowledged (${bookingId})`,
+        message: `${params.actor} acknowledged direct advance terms on booking ${bookingId}.`,
+        type: 'info',
+        bookingId,
+      });
+    }
+    addToast('Booking notes & timeline updated!', 'success');
+  };
+
+  const requestDevoteeCancellation = (bookingId: string, reason: string) => {
+    const target = bookings.find(b => b.id === bookingId);
+    if (!target) return;
+    const evalPolicy = getBookingCancellationPolicy(target);
+    if (!evalPolicy.canDevoteeSelfCancelOrSwap) {
+      addToast(evalPolicy.summaryEn, 'error');
+      return;
+    }
+    if (!reason.trim()) {
+      addToast('Please state a clear reason for cancellation.', 'error');
+      return;
+    }
+    const tlCancelReq: BookingTimelineEvent = {
+      id: `TL_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      actor: 'Devotee',
+      action: 'Cancellation Request Submitted (Routed to Purohit & Admin)',
+      details: `Reason: ${reason.trim()} (${evalPolicy.isMajorCeremony ? 'Major Ceremony 10+ days prior' : 'Pre-Event 3+ days prior'})`,
+    };
+    setBookings(prev => {
+      const next = prev.map(b =>
+        b.id === bookingId
+          ? {
+              ...b,
+              status: 'Cancellation Requested' as const,
+              devoteeCancelStatus: 'requested' as const,
+              devoteeCancelReason: reason.trim(),
+              cancellationRoutedTo: ['Purohit', 'Admin'] as ('Purohit' | 'Admin')[],
+              timeline: [...(b.timeline || []), tlCancelReq],
+            }
+          : b
+      );
+      firebaseMock.db.saveBookingsList(next);
+      return next;
+    });
+    createTicket({
+      bookingId,
+      userName: target.userName,
+      userPhone: target.userPhone,
+      category: 'Other',
+      severity: 'Urgent',
+      description: `Devotee cancellation requested for ${target.occasion} (${bookingId}) on ${target.date}. Routed to Purohit (${target.purohitName}) & Admin. Reason: ${reason.trim()}`,
+    });
+    syncDevoteeCancelToBackend({ bookingId, reason: reason.trim(), actionType: 'cancel' });
+    triggerNotification({
+      title: `Cancellation Request Routed to Purohit & Admin (${bookingId})`,
+      message: `${target.occasion} cancellation sent to ${target.purohitName} & Admin. Note: Direct private advances are settled directly between devotee & Purohit.`,
+      type: 'warning',
+      bookingId,
+    });
+    addToast(`Cancellation request for ${bookingId} routed to Purohit & Admin.`, 'info');
   };
 
   const markBookingWhatsappSent = (bookingId: string) => {
@@ -705,7 +1086,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       user, login, register, logout, updateProfile, isAdmin, isAuthLoading,
       cart, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, isCartOpen, setCartOpen,
       products, updateProduct, addProduct, deleteProduct, orders, placeOrder, updateOrderStatus,
-      purohits, bookings, createBooking, updateBookingStatus, markBookingWhatsappSent,
+      walletBalance, walletTransactions, debitWalletForBooking,
+      purohits, bookings, createBooking, updateBookingStatus, purohitRespondToBooking, rescheduleBooking,
+      updateBookingNoteAndAdvance, requestDevoteeCancellation, markBookingWhatsappSent,
       requestBookingHandoff, acceptBookingHandoff, attachSamagriToBooking, addPurohitReview, uploadPurohitPhoto,
       aparaPeetas, aparaBookings, createAparaBooking, updateAparaBookingStatus, markAparaWhatsappSent,
       updateAparaFoodCustomization, addAparaReview, uploadAparaPhoto,

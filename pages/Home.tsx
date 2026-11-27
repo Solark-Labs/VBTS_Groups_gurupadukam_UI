@@ -4,10 +4,11 @@ import { ArrowRight, Star, CheckCircle, Search, Zap, Gift, PhoneCall } from 'luc
 import { useAppContext } from '../contexts/AppContext';
 import { ProductCard } from '../components/ProductCard';
 import { SERVICE_CATEGORIES, POOJA_PACKAGES, TESTIMONIALS, POOJA_OCCASIONS, BRAND_CONTACT } from '../constants';
+import { localizeDynamic } from '../i18n/languages';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
-  const { products, purohits, t } = useAppContext();
+  const { products, purohits, language, t } = useAppContext();
   const [search, setSearch] = useState('');
   const availableNowCount = purohits.filter(p => p.availability === 'now').length;
 
@@ -82,7 +83,7 @@ export const Home: React.FC = () => {
                       onClick={() => navigate(`/purohits?q=${encodeURIComponent(occ)}`)}
                       className="text-[12px] font-medium px-3 py-1 border border-gold/30 text-gold-lt hover:bg-gold hover:text-maroon-dk transition-all rounded-full bg-black/10"
                     >
-                      {occ}
+                      {localizeDynamic(occ, language)}
                     </button>
                   ))}
                 </div>
@@ -139,12 +140,20 @@ export const Home: React.FC = () => {
         {/* Bottom Stats Bar */}
         <div className="relative z-30 bg-maroon-dk/95 border-t border-gold/20 py-3.5">
           <div className="max-w-7xl mx-auto px-6 flex flex-wrap justify-center md:justify-around gap-6">
-            {[
-              { n: '₹11', label: 'Token Booking Confirmation' },
-              { n: 'Direct', label: 'Direct Dakshina Negotiation' },
-              { n: 'In Minutes', label: 'Everyday Pooja Essentials' },
-              { n: 'Doorstep', label: 'Complete Event Supplies' },
-            ].map(stat => (
+            {(language === 'te'
+              ? [
+                  { n: '₹11', label: 'టోకెన్ బుకింగ్ నిర్ధారణ' },
+                  { n: 'నేరుగా', label: 'పురోహితుడితో దక్షిణ మాట' },
+                  { n: 'నిమిషాల్లో', label: 'నిత్య పూజా సామగ్రి' },
+                  { n: 'ఇంటి వద్దకు', label: 'సంపూర్ణ పూజా వస్తువులు' },
+                ]
+              : [
+                  { n: '₹11', label: 'Token Booking Confirmation' },
+                  { n: 'Direct', label: 'Direct Dakshina Negotiation' },
+                  { n: 'In Minutes', label: 'Everyday Pooja Essentials' },
+                  { n: 'Doorstep', label: 'Complete Event Supplies' },
+                ]
+            ).map(stat => (
               <div key={stat.label} className="flex items-center gap-3">
                 <span className="font-serif text-lg font-bold text-gold">{stat.n}</span>
                 <span className="text-[12px] font-medium uppercase tracking-wider text-cream/70">{stat.label}</span>
@@ -173,11 +182,17 @@ export const Home: React.FC = () => {
                 className="group bg-white border border-gold/20 p-6 hover:border-gold hover:shadow-lg hover:-translate-y-1 transition-all duration-200 text-center rounded-lg flex flex-col items-center"
               >
                 <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-200">{cat.icon}</div>
-                <h3 className="font-semibold text-sm text-text-dk group-hover:text-maroon transition-colors mb-1">{cat.name}</h3>
-                <p className="font-telugu text-xs text-text-lt mb-2">{cat.nameTe}</p>
-                <p className="text-xs text-text-md leading-relaxed mb-4 line-clamp-2">{cat.description}</p>
+                <h3 className="font-semibold text-sm text-text-dk group-hover:text-maroon transition-colors mb-1">
+                  {language === 'te' ? cat.nameTe : cat.name}
+                </h3>
+                <p className="font-telugu text-xs text-text-lt mb-2">
+                  {language === 'te' ? cat.name : cat.nameTe}
+                </p>
+                <p className="text-xs text-text-md leading-relaxed mb-4 line-clamp-2">
+                  {localizeDynamic(cat.description, language)}
+                </p>
                 <div className="mt-auto inline-block text-[11px] font-semibold tracking-wide uppercase bg-maroon/5 text-maroon border border-maroon/15 px-3 py-1 rounded-full">
-                  {cat.badgeText}
+                  {localizeDynamic(cat.badgeText, language)}
                 </div>
               </Link>
             ))}
@@ -204,7 +219,14 @@ export const Home: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {availableNow.map((p) => (
-              <div key={p.id} className="bg-white border border-gold/20 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 p-6 rounded-lg flex flex-col justify-between">
+              <div
+                key={p.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/purohits/${p.id}`)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/purohits/${p.id}`); } }}
+                className="bg-white border border-gold/20 hover:border-gold shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 p-6 rounded-lg flex flex-col justify-between cursor-pointer"
+              >
                 <div>
                   <div className="flex items-start gap-4 mb-4">
                     <div className="relative">
@@ -216,8 +238,12 @@ export const Home: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-1">
                         <div>
-                          <h3 className="font-semibold text-sm text-text-dk leading-tight">{p.name}</h3>
-                          <p className="font-telugu text-xs text-text-lt mt-0.5">{p.nameTe}</p>
+                          <h3 className="font-semibold text-sm text-text-dk leading-tight">
+                            {language === 'te' ? p.nameTe : p.name}
+                          </h3>
+                          <p className="font-telugu text-xs text-text-lt mt-0.5">
+                            {language === 'te' ? p.name : p.nameTe}
+                          </p>
                         </div>
                         {p.verified && (
                           <span className="shrink-0 bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider">{t('verified')}</span>
@@ -233,7 +259,9 @@ export const Home: React.FC = () => {
 
                   <div className="flex flex-wrap gap-1.5 mb-4">
                     {p.specializations.slice(0, 3).map(s => (
-                      <span key={s} className="text-[11px] font-medium bg-maroon/5 text-maroon border border-maroon/15 px-2.5 py-0.5 rounded-full">{s}</span>
+                      <span key={s} className="text-[11px] font-medium bg-maroon/5 text-maroon border border-maroon/15 px-2.5 py-0.5 rounded-full">
+                        {localizeDynamic(s, language)}
+                      </span>
                     ))}
                   </div>
 
@@ -258,7 +286,11 @@ export const Home: React.FC = () => {
                     <div className="text-[10px] text-text-lt uppercase tracking-wider font-medium">{t('bookingTokenLabel')}</div>
                     <div className="text-sm font-bold text-maroon">{t('directQuote')}</div>
                   </div>
-                  <Link to="/purohits" className="bg-maroon hover:bg-maroon-md text-gold-pale font-bold text-xs tracking-wider uppercase px-4 py-2 rounded shadow transition-colors">
+                  <Link
+                    to={`/purohits?book=${p.id}`}
+                    onClick={e => e.stopPropagation()}
+                    className="bg-maroon hover:bg-maroon-md text-gold-pale font-bold text-xs tracking-wider uppercase px-4 py-2 rounded shadow transition-colors"
+                  >
                     {t('navBook11')}
                   </Link>
                 </div>
@@ -310,7 +342,7 @@ export const Home: React.FC = () => {
               >
                 {pkg.popular && (
                   <div className="bg-gold text-maroon-dk font-cinzel text-[0.6rem] font-bold tracking-[0.2em] uppercase text-center py-1.5">
-                    ⭐ Most Requested
+                    ⭐ {localizeDynamic('Most Requested', language)}
                   </div>
                 )}
                 <div className="p-5 flex-1 flex flex-col">
@@ -319,14 +351,20 @@ export const Home: React.FC = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-maroon-dk/80 to-transparent" />
                     {pkg.badge && !pkg.popular && (
                       <span className="absolute top-2 right-2 bg-gold text-maroon-dk font-cinzel text-[0.55rem] font-bold tracking-widest uppercase px-2 py-0.5">
-                        {pkg.badge}
+                        {localizeDynamic(pkg.badge, language)}
                       </span>
                     )}
                   </div>
 
-                  <div className="font-cinzel text-[0.6rem] font-bold tracking-[0.2em] uppercase text-gold mb-1">{pkg.occasion}</div>
-                  <h3 className="font-cinzel text-sm font-bold text-cream mb-1">{pkg.name}</h3>
-                  <p className="font-telugu text-[0.65rem] text-cream/55 mb-4">{pkg.nameTe}</p>
+                  <div className="font-cinzel text-[0.6rem] font-bold tracking-[0.2em] uppercase text-gold mb-1">
+                    {localizeDynamic(pkg.occasion, language)}
+                  </div>
+                  <h3 className="font-cinzel text-sm font-bold text-cream mb-1">
+                    {language === 'te' ? pkg.nameTe : pkg.name}
+                  </h3>
+                  <p className="font-telugu text-[0.65rem] text-cream/55 mb-4">
+                    {language === 'te' ? pkg.name : pkg.nameTe}
+                  </p>
 
                   <ul className="space-y-1.5 mb-5 flex-1">
                     {pkg.includes.map(inc => (

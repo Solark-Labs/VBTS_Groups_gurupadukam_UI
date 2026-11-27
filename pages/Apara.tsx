@@ -15,6 +15,9 @@ import {
   getAparaPriorDispatchInfo,
   buildAparaOrganizerWhatsAppUrl,
 } from '../utils/whatsapp';
+import { CashfreeOrderResponse, createCashfreeTokenOrder } from '../services/paymentService';
+import { CashfreeCheckoutModal } from '../components/CashfreeCheckoutModal';
+import { SplashOverlay } from '../components/SplashOverlay';
 
 export const Apara: React.FC = () => {
   const {
@@ -75,6 +78,10 @@ export const Apara: React.FC = () => {
   );
   const [isBooking, setIsBooking] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState<AparaBooking | null>(null);
+  const [pendingCashfree, setPendingCashfree] = useState<{
+    order: CashfreeOrderResponse;
+    bookingDraft: AparaBooking;
+  } | null>(null);
 
   useEffect(() => {
     const bookId = searchParams.get('book');
@@ -178,12 +185,12 @@ export const Apara: React.FC = () => {
     }
 
     setIsBooking(true);
-    await new Promise(r => setTimeout(r, 850));
 
     const priorDate = getOneDayPriorDate(bookDate);
     const twoDaysPriorDate = getOneDayPriorDate(priorDate);
+    const bookingId = 'APR' + Math.floor(100000 + Math.random() * 900000);
     const newBooking: AparaBooking = {
-      id: 'APR' + Math.floor(100000 + Math.random() * 900000),
+      id: bookingId,
       userId: user.id,
       userName: bookName || user.name,
       userPhone: cleanPhone,
@@ -218,10 +225,14 @@ export const Apara: React.FC = () => {
       createdAt: new Date().toISOString(),
     };
 
-    createAparaBooking(newBooking);
-    setConfirmedBooking(newBooking);
+    const cfOrder = await createCashfreeTokenOrder({
+      bookingRef: bookingId,
+      customerName: bookName || user.name,
+      customerPhone: cleanPhone,
+      customerEmail: bookEmail || user.email,
+    });
+    setPendingCashfree({ order: cfOrder, bookingDraft: newBooking });
     setIsBooking(false);
-    addToast(`₹11 Token Paid! ${selectedPeeta.name} contact revealed.`, 'success');
   };
 
   const handleReviewSubmit = (e: React.FormEvent) => {
@@ -257,77 +268,20 @@ export const Apara: React.FC = () => {
   return (
     <div className="min-h-screen bg-cream pt-[96px]">
 
-      {/* ─── APARA SPLASH SCREEN (SIMPLE, CLEAN PRODUCTION-GRADE) ─── */}
-      {showSplash && (
-        <div
-          className="fixed inset-0 z-[260] bg-maroon-dk/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
-          onClick={dismissSplash}
-        >
-          <div
-            className="max-w-lg w-full bg-cream border border-gold/50 rounded-2xl shadow-2xl overflow-hidden relative"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="bg-gradient-to-b from-maroon-dk to-maroon px-6 pt-7 pb-6 text-center text-cream relative">
-              <button
-                type="button"
-                onClick={dismissSplash}
-                aria-label="Close"
-                className="absolute top-3.5 right-3.5 text-cream/70 hover:text-gold transition-colors"
-              >
-                <X size={20} />
-              </button>
-              <img
-                src="/logo.png"
-                alt="Guru Padukam"
-                className="w-16 h-16 mx-auto rounded-full border-2 border-gold bg-cream object-cover p-0.5 shadow-lg mb-3"
-              />
-              <p className="text-[11px] font-bold tracking-[0.22em] uppercase text-gold-lt">
-                ॐ पितृभ्यो नमः
-              </p>
-              <h2 className="font-serif text-2xl font-bold text-cream mt-1">
-                {t('aparaSplashTitle')}
-              </h2>
-              <p className="text-xs text-cream/80 mt-1.5 max-w-md mx-auto">
-                {t('aparaSplashSub')}
-              </p>
-            </div>
-
-            <div className="p-6 space-y-3.5">
-              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gold/25">
-                <span className="text-xl shrink-0">🕉️</span>
-                <div>
-                  <div className="text-xs font-bold text-maroon">{t('aparaSplashP1Title')}</div>
-                  <div className="text-[11px] text-text-md mt-0.5">{t('aparaSplashP1Desc')}</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gold/25">
-                <span className="text-xl shrink-0">🍛</span>
-                <div>
-                  <div className="text-xs font-bold text-maroon">{t('aparaSplashP2Title')}</div>
-                  <div className="text-[11px] text-text-md mt-0.5">{t('aparaSplashP2Desc')}</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gold/25">
-                <span className="text-xl shrink-0">🛡️</span>
-                <div>
-                  <div className="text-xs font-bold text-maroon">{t('aparaSplashP3Title')}</div>
-                  <div className="text-[11px] text-text-md mt-0.5">{t('aparaSplashP3Desc')}</div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={dismissSplash}
-                className="w-full mt-2 py-3 bg-maroon text-gold-pale font-cinzel text-xs font-bold uppercase tracking-widest rounded-lg shadow hover:bg-maroon-md transition-colors"
-              >
-                {t('aparaSplashCta')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ─── APARA SPLASH SCREEN (REUSABLE PRODUCTION-GRADE OVERLAY) ─── */}
+      <SplashOverlay
+        visible={showSplash}
+        onDismiss={dismissSplash}
+        eyebrow="ॐ पितृभ्यो नमः"
+        title={t('aparaSplashTitle')}
+        subtitle={t('aparaSplashSub')}
+        features={[
+          { icon: '🕉️', title: t('aparaSplashP1Title'), desc: t('aparaSplashP1Desc') },
+          { icon: '🍛', title: t('aparaSplashP2Title'), desc: t('aparaSplashP2Desc') },
+          { icon: '🛡️', title: t('aparaSplashP3Title'), desc: t('aparaSplashP3Desc') },
+        ]}
+        ctaLabel={t('aparaSplashCta')}
+      />
 
       {/* HERO */}
       <section className="bg-gradient-to-r from-maroon-dk via-maroon to-maroon-dk py-12 px-6 relative overflow-hidden">
@@ -513,7 +467,11 @@ export const Apara: React.FC = () => {
               {peetasWithDistance.map((peeta) => (
                 <div
                   key={peeta.id}
-                  className="bg-white border border-gold/20 rounded-sm p-6 shadow-sm hover:shadow-lg transition-all space-y-4"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/apara/${peeta.id}`)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/apara/${peeta.id}`); } }}
+                  className="bg-white border border-gold/25 hover:border-gold rounded-sm p-6 shadow-sm hover:shadow-lg transition-all space-y-4 cursor-pointer"
                 >
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                     <div className="flex items-start gap-4">
@@ -531,9 +489,9 @@ export const Apara: React.FC = () => {
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link to={`/apara/${peeta.id}`} className="font-serif text-xl font-bold text-maroon hover:underline">
+                          <span className="font-serif text-xl font-bold text-maroon">
                             {peeta.name}
-                          </Link>
+                          </span>
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-green-50 text-green-800 border border-green-200 px-2.5 py-0.5 rounded-full">
                             <MapPin size={11} /> {peeta.distanceKm} km away
                           </span>
@@ -550,7 +508,7 @@ export const Apara: React.FC = () => {
                     <div className="flex sm:flex-col items-center sm:items-end gap-3 sm:gap-1 shrink-0">
                       <button
                         type="button"
-                        onClick={() => setReviewPeeta(peeta)}
+                        onClick={e => { e.stopPropagation(); setReviewPeeta(peeta); }}
                         className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full hover:bg-amber-100 transition-colors"
                       >
                         <Star size={13} className="text-gold fill-gold" />
@@ -613,15 +571,9 @@ export const Apara: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
-                      <Link
-                        to={`/apara/${peeta.id}`}
-                        className="px-4 py-2.5 border border-gold/40 text-maroon font-cinzel text-[11px] font-bold tracking-wider uppercase rounded-sm hover:bg-gold/10 transition-colors"
-                      >
-                        {t('viewProfile')}
-                      </Link>
                       <button
                         type="button"
-                        onClick={() => openBookingModal(peeta)}
+                        onClick={e => { e.stopPropagation(); openBookingModal(peeta); }}
                         className="flex-1 sm:flex-initial bg-maroon text-gold-pale font-cinzel text-xs font-bold tracking-widest uppercase px-6 py-2.5 clip-btn hover:bg-maroon-md transition-colors shadow"
                       >
                         {t('navBook11')}
@@ -1182,6 +1134,27 @@ export const Apara: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {pendingCashfree && (
+        <CashfreeCheckoutModal
+          order={pendingCashfree.order}
+          bookingRef={pendingCashfree.bookingDraft.id}
+          userId={pendingCashfree.bookingDraft.userId}
+          customerName={pendingCashfree.bookingDraft.userName}
+          customerPhone={pendingCashfree.bookingDraft.userPhone}
+          description={`Apara Seva: ${pendingCashfree.bookingDraft.ceremonyType} (${pendingCashfree.bookingDraft.peetaName})`}
+          onSuccess={() => {
+            createAparaBooking(pendingCashfree.bookingDraft);
+            setConfirmedBooking(pendingCashfree.bookingDraft);
+            addToast(`₹11 Cashfree Payment Verified! ${pendingCashfree.bookingDraft.peetaName} contact revealed.`, 'success');
+            setPendingCashfree(null);
+          }}
+          onCancel={(reason) => {
+            setPendingCashfree(null);
+            addToast(reason || 'Payment not completed — Apara booking was NOT confirmed.', 'error');
+          }}
+        />
       )}
     </div>
   );

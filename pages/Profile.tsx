@@ -2,22 +2,44 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   User as UserIcon, MapPin, Lock, Bell, Save, Loader2, Globe, Camera,
-  CalendarCheck, Package, Phone, ExternalLink, CheckCircle2, Sparkles, X
+  CalendarCheck, Package, Phone, ExternalLink, CheckCircle2, Sparkles, X,
+  Wallet, RefreshCw, XCircle, ShieldCheck
 } from 'lucide-react';
 import { useAppContext } from '../contexts/AppContext';
 import { PAN_INDIA_LANGUAGES, LanguageCode, getLanguageMeta } from '../i18n/languages';
+import { BRAND_CONTACT } from '../constants';
+import { getBookingCancellationPolicy } from '../utils/bookingRules';
+import { Booking, AparaBooking, Order } from '../types';
+import { BookingDetailsModal } from '../components/BookingDetailsModal';
+import { InvoiceModal } from '../components/InvoiceModal';
 
-type ProfileTab = 'personal' | 'bookings' | 'language' | 'address' | 'security' | 'notifications';
+type ProfileTab =
+  | 'personal'
+  | 'bookings'
+  | 'cancelled'
+  | 'refunds'
+  | 'language'
+  | 'address'
+  | 'security'
+  | 'notifications';
 
 export const Profile: React.FC = () => {
   const {
     user, updateProfile, isAuthLoading, addToast,
     language, setLanguage, t,
     bookings, aparaBookings, orders,
+    walletBalance, walletTransactions,
     pushPermission, pushEnabled, setPushEnabled, requestPushPermission, sendTestPush,
   } = useAppContext();
+
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ProfileTab>('personal');
+  const [selectedDetail, setSelectedDetail] = useState<{
+    booking?: Booking;
+    apara?: AparaBooking;
+    order?: Order;
+  } | null>(null);
+  const [showInvoiceOrder, setShowInvoiceOrder] = useState<Order | null>(null);
 
   // Form States
   const [name, setName] = useState('');
@@ -28,6 +50,9 @@ export const Profile: React.FC = () => {
   const [city, setCity] = useState('Khammam');
   const [pincode, setPincode] = useState('507002');
   const [notifications, setNotifications] = useState({ email: true, sms: false });
+
+  // Category filter
+  const [bookingCategoryFilter, setBookingCategoryFilter] = useState<'all' | 'ritual' | 'apara' | 'orders'>('all');
 
   // Password State (Mock)
   const [currentPassword, setCurrentPassword] = useState('');
@@ -54,16 +79,30 @@ export const Profile: React.FC = () => {
   if (!user) return null;
 
   const cleanPhone = (user.phone || '').replace(/\D/g, '');
-  const myPurohitBookings = bookings.filter(
+  const allMyPurohitBookings = bookings.filter(
     b => b.userId === user.id || b.userEmail === user.email || (cleanPhone && b.userPhone.replace(/\D/g, '') === cleanPhone)
   );
-  const myAparaBookings = aparaBookings.filter(
+  const activePurohitBookings = allMyPurohitBookings.filter(
+    b => b.status !== 'Rejected by Purohit' && b.status !== 'Cancelled'
+  );
+  const cancelledPurohitBookings = allMyPurohitBookings.filter(
+    b => b.status === 'Rejected by Purohit' || b.status === 'Cancelled'
+  );
+
+  const allMyApara = aparaBookings.filter(
     b => b.userId === user.id || b.userEmail === user.email || (cleanPhone && b.userPhone.replace(/\D/g, '') === cleanPhone)
   );
-  const myOrders = orders.filter(
+  const activeAparaBookings = allMyApara.filter(a => a.status !== 'Cancelled');
+  const cancelledAparaBookings = allMyApara.filter(a => a.status === 'Cancelled');
+
+  const allMyOrders = orders.filter(
     o => o.userId === user.id || o.userEmail === user.email
   );
-  const totalBookingsCount = myPurohitBookings.length + myAparaBookings.length + myOrders.length;
+  const activeOrders = allMyOrders.filter(o => o.status !== 'Cancelled');
+  const cancelledOrders = allMyOrders.filter(o => o.status === 'Cancelled');
+
+  const activeBookingsCount = activePurohitBookings.length + activeAparaBookings.length + activeOrders.length;
+  const cancelledCount = cancelledPurohitBookings.length + cancelledAparaBookings.length + cancelledOrders.length;
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -123,9 +162,11 @@ export const Profile: React.FC = () => {
 
   const currentLangMeta = getLanguageMeta(language);
 
-  const tabs: { id: ProfileTab; label: string; icon: React.ComponentType<{ size?: number }>; badge?: number }[] = [
+  const tabs: { id: ProfileTab; label: string; icon: React.ComponentType<{ size?: number }>; badge?: number | string }[] = [
     { id: 'personal', label: t('tabPersonal'), icon: UserIcon },
-    { id: 'bookings', label: t('tabBookings'), icon: CalendarCheck, badge: totalBookingsCount },
+    { id: 'bookings', label: t('tabBookings'), icon: CalendarCheck, badge: activeBookingsCount },
+    { id: 'cancelled', label: 'Cancelled', icon: XCircle, badge: cancelledCount },
+    { id: 'refunds', label: 'Wallet & Refunds', icon: Wallet, badge: walletBalance > 0 ? `₹${walletBalance}` : undefined },
     { id: 'language', label: t('tabLanguage'), icon: Globe },
     { id: 'address', label: t('tabAddress'), icon: MapPin },
     { id: 'security', label: t('tabSecurity'), icon: Lock },
@@ -171,8 +212,8 @@ export const Profile: React.FC = () => {
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-gold/20 text-maroon-dk border border-gold/40 flex items-center gap-1">
                   <Globe size={11} /> {currentLangMeta.nativeName} ({currentLangMeta.name})
                 </span>
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-green-50 text-green-800 border border-green-200">
-                  {totalBookingsCount} Bookings &amp; Orders
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-green-50 text-green-800 border border-green-200 flex items-center gap-1">
+                  <Wallet size={11} /> Wallet: ₹{walletBalance}
                 </span>
               </div>
             </div>
@@ -206,17 +247,17 @@ export const Profile: React.FC = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center justify-between px-5 py-4 font-cinzel text-xs tracking-widest uppercase transition-colors border-l-4 ${
+                    className={`flex items-center justify-between px-5 py-3.5 font-cinzel text-xs tracking-wider uppercase transition-colors border-l-4 ${
                       isActive
                         ? 'border-maroon bg-maroon/5 text-maroon font-bold'
                         : 'border-transparent text-text-md hover:bg-cream/50 hover:text-maroon'
                     }`}
                   >
                     <span className="flex items-center gap-3">
-                      <Icon size={17} />
+                      <Icon size={16} />
                       {tab.label}
                     </span>
-                    {typeof tab.badge === 'number' && tab.badge > 0 && (
+                    {tab.badge !== undefined && tab.badge !== 0 && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-maroon text-gold-pale">
                         {tab.badge}
                       </span>
@@ -317,7 +358,7 @@ export const Profile: React.FC = () => {
               </form>
             )}
 
-            {/* MY BOOKINGS & ORDERS */}
+            {/* ACTIVE BOOKINGS & ORDERS (CATEGORIZED + SUPPORT + FREE DATE SWAP) */}
             {activeTab === 'bookings' && (
               <div className="space-y-6 animate-slide-up">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gold/20 pb-3">
@@ -330,7 +371,30 @@ export const Profile: React.FC = () => {
                   </Link>
                 </div>
 
-                {totalBookingsCount === 0 ? (
+                {/* Category Filter Tabs */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: 'all', label: `All (${activeBookingsCount})` },
+                    { id: 'ritual', label: `🙏 Ritual Bookings (${activePurohitBookings.length})` },
+                    { id: 'apara', label: `🕉️ Apara Seva (${activeAparaBookings.length})` },
+                    { id: 'orders', label: `📦 Marketplace Orders (${activeOrders.length})` },
+                  ].map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setBookingCategoryFilter(cat.id as any)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                        bookingCategoryFilter === cat.id
+                          ? 'bg-maroon text-gold-pale border-maroon shadow-sm'
+                          : 'bg-cream/60 text-maroon border-gold/30 hover:bg-gold/15'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                {activeBookingsCount === 0 ? (
                   <div className="text-center py-12 bg-cream/40 border border-gold/20 rounded-lg space-y-4">
                     <CalendarCheck size={36} className="mx-auto text-gold-dk" />
                     <p className="text-sm text-text-md max-w-md mx-auto">{t('noBookingsYet')}</p>
@@ -345,63 +409,98 @@ export const Profile: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {/* Purohit Bookings */}
-                    {myPurohitBookings.length > 0 && (
+                    {(bookingCategoryFilter === 'all' || bookingCategoryFilter === 'ritual') && activePurohitBookings.length > 0 && (
                       <div className="space-y-3">
                         <h3 className="font-cinzel text-sm font-bold uppercase tracking-wider text-maroon flex items-center gap-2">
-                          🙏 Purohit Bookings ({myPurohitBookings.length})
+                          🙏 Ritual Bookings ({activePurohitBookings.length})
                         </h3>
-                        {myPurohitBookings.map(b => (
-                          <div key={b.id} className="p-4 border border-gold/30 rounded-md bg-cream/30 space-y-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div>
-                                <span className="font-mono text-xs font-bold px-2 py-0.5 bg-maroon text-gold-pale rounded">
-                                  {b.id}
-                                </span>
-                                <span className="ml-2 font-serif font-bold text-maroon">{b.occasion}</span>
+                        {activePurohitBookings.map(b => {
+                          const policy = getBookingCancellationPolicy(b);
+                          const latestEvent = b.timeline && b.timeline.length > 0 ? b.timeline[b.timeline.length - 1] : null;
+                          return (
+                            <div
+                              key={b.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => setSelectedDetail({ booking: b })}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDetail({ booking: b }); } }}
+                              className="p-4 border border-gold/30 hover:border-maroon/60 rounded-lg bg-white hover:shadow-md transition-all cursor-pointer space-y-2.5"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                  <span className="font-mono text-xs font-bold px-2 py-0.5 bg-maroon text-gold-pale rounded">
+                                    {b.id}
+                                  </span>
+                                  <span className="ml-2 font-serif font-bold text-base text-maroon">{b.occasion}</span>
+                                  {b.bookingType === 'immediate' && (
+                                    <span className="ml-2 text-[10px] font-bold px-2 py-0.5 bg-red-600 text-white rounded-full">
+                                      ⚡ Immediate
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
+                                    ₹{b.total} Verified ({b.paymentMethod || 'Cashfree'})
+                                  </span>
+                                  <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                                    b.status === 'Muhurtham Finalized' || b.status === 'Confirmed'
+                                      ? 'bg-green-100 text-green-900'
+                                      : 'bg-amber-100 text-amber-900'
+                                  }`}>
+                                    {b.status}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
-                                  ₹{b.total} Token Paid
+
+                              <div className="text-xs text-text-md grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                <div><strong>Purohit:</strong> {b.purohitName}</div>
+                                <div><strong>Date &amp; Time:</strong> {b.date} at {b.time}</div>
+                                {b.nakshatram && (
+                                  <div className="sm:col-span-2 text-maroon font-medium">
+                                    <strong>Nakshatram / Muhurtham:</strong> {b.nakshatram}
+                                  </div>
+                                )}
+                                <div className="sm:col-span-2 text-text-lt"><strong>Venue:</strong> {b.address}, {b.city} – {b.pincode}</div>
+                              </div>
+
+                              <div className="pt-2 border-t border-gold/15 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span className="text-[11px] text-text-md">
+                                  {latestEvent
+                                    ? <><strong>{language === 'te' ? 'తాజా చర్య:' : 'Latest action:'}</strong> {latestEvent.actor} — {latestEvent.action}</>
+                                    : policy.canDevoteeSelfCancelOrSwap
+                                    ? (language === 'te' ? 'ఉచిత తేదీ మార్పు & చర్యల చరిత్ర అందుబాటులో ఉంది' : 'Free date swap & full record available')
+                                    : (language === 'te' ? 'పూర్తి వివరాలు చూడటానికి క్లిక్ చేయండి' : 'Click to inspect details & actions')}
                                 </span>
-                                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900">
-                                  {b.status}
+                                <span className="font-bold text-maroon text-[11px] underline">
+                                  {language === 'te' ? 'పూర్తి వివరాలు & టైమ్‌లైన్ →' : 'Open Neat View & Actions →'}
                                 </span>
                               </div>
                             </div>
-                            <div className="text-xs text-text-md grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                              <div><strong>Purohit:</strong> {b.purohitName}</div>
-                              <div><strong>Date &amp; Time:</strong> {b.date} at {b.time}</div>
-                              <div className="sm:col-span-2"><strong>Venue:</strong> {b.address}, {b.city} - {b.pincode}</div>
-                            </div>
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gold/20 text-xs">
-                              <span className="text-green-700 font-semibold flex items-center gap-1">
-                                <CheckCircle2 size={13} />
-                                {b.shipBefore30Min ? 'Pooja Essentials scheduled 30 mins prior' : 'Guru Padukam End-to-End Support Active'}
-                              </span>
-                              <Link to="/track-order" className="font-bold text-maroon underline">
-                                Track / Manage →
-                              </Link>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
-                    {/* Apara Bookings */}
-                    {myAparaBookings.length > 0 && (
+                    {(bookingCategoryFilter === 'all' || bookingCategoryFilter === 'apara') && activeAparaBookings.length > 0 && (
                       <div className="space-y-3">
                         <h3 className="font-cinzel text-sm font-bold uppercase tracking-wider text-maroon flex items-center gap-2">
-                          🕉️ Apara Seva Bookings ({myAparaBookings.length})
+                          🕉️ Apara Seva Bookings ({activeAparaBookings.length})
                         </h3>
-                        {myAparaBookings.map(a => (
-                          <div key={a.id} className="p-4 border border-gold/30 rounded-md bg-amber-50/40 space-y-2">
+                        {activeAparaBookings.map(a => (
+                          <div
+                            key={a.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setSelectedDetail({ apara: a })}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDetail({ apara: a }); } }}
+                            className="p-4 border border-gold/30 hover:border-maroon/60 rounded-lg bg-amber-50/40 hover:shadow-md transition-all cursor-pointer space-y-2"
+                          >
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div>
                                 <span className="font-mono text-xs font-bold px-2 py-0.5 bg-maroon text-gold-pale rounded">
                                   {a.id}
                                 </span>
-                                <span className="ml-2 font-serif font-bold text-maroon">{a.ceremonyType}</span>
+                                <span className="ml-2 font-serif font-bold text-base text-maroon">{a.ceremonyType}</span>
                               </div>
                               <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
                                 ₹{a.tokenFee} Confirmed · {a.status}
@@ -410,28 +509,38 @@ export const Profile: React.FC = () => {
                             <div className="text-xs text-text-md grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                               <div><strong>Peeta:</strong> {a.peetaName}</div>
                               <div><strong>Date &amp; Mode:</strong> {a.date} ({a.ritualMode})</div>
-                              <div><strong>Group:</strong> {a.purohitGroup} · {a.attendeeCount} Guests</div>
-                              <div className="flex items-center gap-1">
-                                <Phone size={12} className="text-green-700" />
-                                <strong>Organizer:</strong>{' '}
-                                <a href={`tel:${a.peetaPhone}`} className="text-maroon underline font-semibold">
-                                  {a.peetaPhone}
-                                </a>
-                              </div>
+                            </div>
+                            <div className="pt-2 border-t border-gold/20 flex justify-between items-center text-xs">
+                              <a
+                                href={`tel:${a.peetaPhone}`}
+                                onClick={e => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-maroon font-bold underline"
+                              >
+                                <Phone size={12} /> {a.peetaPhone}
+                              </a>
+                              <span className="font-bold text-maroon text-[11px] underline">
+                                {language === 'te' ? 'వివరాలు & సహాయం చూడండి →' : 'Open Neat View & Support →'}
+                              </span>
                             </div>
                           </div>
                         ))}
                       </div>
                     )}
 
-                    {/* Marketplace Orders */}
-                    {myOrders.length > 0 && (
+                    {(bookingCategoryFilter === 'all' || bookingCategoryFilter === 'orders') && activeOrders.length > 0 && (
                       <div className="space-y-3">
                         <h3 className="font-cinzel text-sm font-bold uppercase tracking-wider text-maroon flex items-center gap-2">
-                          <Package size={16} /> Marketplace Orders ({myOrders.length})
+                          <Package size={16} /> Marketplace Orders ({activeOrders.length})
                         </h3>
-                        {myOrders.map(o => (
-                          <div key={o.id} className="p-4 border border-gold/30 rounded-md bg-white space-y-2">
+                        {activeOrders.map(o => (
+                          <div
+                            key={o.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setSelectedDetail({ order: o })}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDetail({ order: o }); } }}
+                            className="p-4 border border-gold/30 hover:border-maroon/60 rounded-lg bg-white hover:shadow-md transition-all cursor-pointer space-y-2"
+                          >
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div>
                                 <span className="font-mono text-xs font-bold px-2 py-0.5 bg-gold/25 text-maroon-dk rounded">
@@ -451,12 +560,200 @@ export const Profile: React.FC = () => {
                             <div className="text-xs text-text-md">
                               {o.items.map(i => `${i.name} × ${i.qty}`).join(', ')}
                             </div>
+                            <div className="pt-2 border-t border-gold/15 flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <span className="text-[11px] text-text-lt">
+                                {language === 'te'
+                                  ? 'స్టోర్ యజమాని బాధ్యత · సమస్య ఉంటే మా బృందం వ్యాపారితో మాట్లాడుతుంది'
+                                  : 'Fulfilled by Partner Store · Click to view items or escalate concern'}
+                              </span>
+                              <span className="font-bold text-maroon text-[11px] underline">
+                                {language === 'te' ? 'ఆర్డర్ వివరాలు చూడండి →' : 'Open Order Details →'}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* CANCELLED / DECLINED BY PUROHIT TAB */}
+            {activeTab === 'cancelled' && (
+              <div className="space-y-6 animate-slide-up">
+                <div className="border-b border-gold/20 pb-3">
+                  <h2 className="font-cinzel text-xl font-bold text-maroon flex items-center gap-2">
+                    <XCircle size={20} className="text-red-600" /> Cancelled &amp; Purohit-Declined Bookings
+                  </h2>
+                  <p className="text-xs text-text-md mt-1">
+                    If a Purohit cancels prior to your ritual, you see their exact reason, your ₹11 goes straight to your Wallet, and you can either choose the next available Purohit or contact Guru Padukam directly.
+                  </p>
+                </div>
+
+                {cancelledCount === 0 ? (
+                  <div className="text-center py-12 bg-cream/40 border border-gold/20 rounded-lg space-y-2">
+                    <CheckCircle2 size={34} className="mx-auto text-green-600" />
+                    <div className="font-cinzel text-sm font-bold text-maroon">No Cancelled or Declined Bookings</div>
+                    <p className="text-xs text-text-md">All your ceremonial slots are running smoothly!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {cancelledPurohitBookings.map(b => (
+                      <div
+                        key={b.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedDetail({ booking: b })}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDetail({ booking: b }); } }}
+                        className="p-4 border border-red-200 hover:border-red-400 bg-red-50/40 rounded-lg space-y-2.5 cursor-pointer transition-all"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <span className="font-mono text-xs font-bold px-2 py-0.5 bg-red-700 text-white rounded">
+                              {b.id}
+                            </span>
+                            <span className="ml-2 font-serif font-bold text-maroon">{b.occasion}</span>
+                          </div>
+                          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-800">
+                            {b.status}
+                          </span>
+                        </div>
+                        <div className="text-xs text-text-md space-y-1">
+                          <div><strong>Purohit:</strong> {b.purohitName} · <strong>Scheduled:</strong> {b.date} at {b.time}</div>
+                          {b.purohitActionReason && (
+                            <div className="text-red-800 bg-white border border-red-200 px-2.5 py-1.5 rounded">
+                              <strong>Purohit Cancellation Reason:</strong> {b.purohitActionReason}
+                            </div>
+                          )}
+                        </div>
+                        <div className="pt-2 border-t border-red-200 flex flex-wrap items-center justify-between gap-2">
+                          {b.refundCreditedToWallet ? (
+                            <span className="text-xs font-bold text-green-800 bg-green-100 px-3 py-1 rounded-full">
+                              ✓ ₹{b.total} Credited to Wallet
+                            </span>
+                          ) : (
+                            <span className="text-xs text-text-lt">No cash refund applicable</span>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <a
+                              href={`https://wa.me/${BRAND_CONTACT.phoneRaw}?text=${encodeURIComponent(`Namaste Guru Padukam 🙏 Booking ${b.id} was cancelled (${b.purohitActionReason || 'schedule issue'}). Please assist us urgently.`)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="px-3.5 py-1.5 bg-[#25D366] text-white text-xs font-bold rounded hover:brightness-95"
+                            >
+                              Contact Guru Padukam Directly
+                            </a>
+                            <Link
+                              to="/purohits?avail=now"
+                              onClick={e => e.stopPropagation()}
+                              className="px-4 py-1.5 bg-maroon text-gold-pale text-xs font-bold uppercase rounded hover:bg-maroon-md"
+                            >
+                              Choose Next Available Purohit →
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {cancelledAparaBookings.map(a => (
+                      <div key={a.id} className="p-4 border border-red-200 bg-red-50/40 rounded-md text-xs">
+                        <strong>{a.id}</strong> — {a.ceremonyType} ({a.peetaName}) · Status: {a.status}
+                      </div>
+                    ))}
+
+                    {cancelledOrders.map(o => (
+                      <div key={o.id} className="p-4 border border-red-200 bg-red-50/40 rounded-md text-xs">
+                        <strong>{o.id}</strong> — ₹{o.total} Marketplace Order · Status: {o.status}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* WALLET & REFUNDS TAB */}
+            {activeTab === 'refunds' && (
+              <div className="space-y-6 animate-slide-up">
+                <div className="border-b border-gold/20 pb-3">
+                  <h2 className="font-cinzel text-xl font-bold text-maroon flex items-center gap-2">
+                    <Wallet size={20} className="text-gold-dk" /> Guru Padukam Wallet &amp; Refunds Ledger
+                  </h2>
+                  <p className="text-xs text-text-md mt-1">
+                    Verified ₹11 credits from Purohit schedule declines and reuse history (per our No Cash Refund / Zero-Loss Wallet Policy).
+                  </p>
+                </div>
+
+                {/* Balance Banner */}
+                <div className="bg-gradient-to-r from-maroon-dk via-maroon to-maroon-dk text-cream p-6 rounded-lg shadow flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-widest text-gold-lt font-bold">
+                      Available Devotee Wallet Balance
+                    </div>
+                    <div className="font-cinzelDeco text-4xl font-bold text-gold mt-1">
+                      ₹{walletBalance}
+                    </div>
+                    <p className="text-xs text-cream/80 mt-1">
+                      {walletBalance >= 11
+                        ? 'Ready to book your next Purohit without paying Cashfree again!'
+                        : 'Any ₹11 credited when a Purohit declines appears instantly here.'}
+                    </p>
+                  </div>
+                  <Link
+                    to="/purohits"
+                    className="px-5 py-2.5 bg-gold text-maroon-dk font-cinzel text-xs font-bold uppercase tracking-wider rounded shadow hover:bg-gold-lt transition-colors shrink-0"
+                  >
+                    {walletBalance >= 11 ? 'Use ₹11 Wallet Now →' : 'Browse Purohits'}
+                  </Link>
+                </div>
+
+                {/* Cashfree Token Protection Note */}
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-md text-xs text-amber-950 flex items-start gap-2.5">
+                  <ShieldCheck size={18} className="text-maroon shrink-0 mt-0.5" />
+                  <div>
+                    <strong>How ₹11 Cashfree &amp; Wallet Verification Works:</strong> Your ₹11 booking token is verified via Cashfree Payment Gateway before reaching the Purohit. If the Purohit declines due to a tight schedule, ₹11 enters this Wallet automatically and you get an instant Push Notification.
+                  </div>
+                </div>
+
+                {/* Transactions Ledger */}
+                <div className="space-y-3">
+                  <h3 className="font-cinzel text-sm font-bold uppercase tracking-wider text-maroon">
+                    Wallet &amp; Refund Transactions ({walletTransactions.length})
+                  </h3>
+
+                  {walletTransactions.length === 0 ? (
+                    <div className="text-center py-10 bg-cream/40 border border-gold/20 rounded-lg text-xs text-text-md">
+                      No wallet credits or debits yet.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gold/20 border border-gold/25 rounded-md overflow-hidden">
+                      {walletTransactions.map(tx => (
+                        <div key={tx.id} className="p-4 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <div className="text-xs font-bold text-maroon flex items-center gap-2">
+                              <span className="font-mono text-[11px] bg-cream px-2 py-0.5 rounded border border-gold/25">
+                                {tx.id}
+                              </span>
+                              <span>{tx.reason}</span>
+                            </div>
+                            <div className="text-[11px] text-text-lt mt-1">
+                              {new Date(tx.createdAt).toLocaleString()}
+                              {tx.bookingId && <> · Booking: <strong>{tx.bookingId}</strong></>}
+                            </div>
+                          </div>
+                          <span className={`font-cinzel font-bold text-sm px-3 py-1 rounded-full shrink-0 ${
+                            tx.type === 'credit'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-amber-100 text-amber-900'
+                          }`}>
+                            {tx.type === 'credit' ? `+₹${tx.amount} Credited` : `-₹${tx.amount} Used`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -473,7 +770,9 @@ export const Profile: React.FC = () => {
                 <div className="bg-amber-50 border border-amber-200 rounded-md p-3.5 text-xs text-amber-950 flex items-center gap-2.5">
                   <Sparkles size={16} className="text-maroon shrink-0" />
                   <span>
-                    Selecting a language immediately updates the Guru Padukam website and <strong>PadukaAI Concierge</strong> across all 14 Pan-India supported languages.
+                    {language === 'te'
+                      ? 'భాషను ఎంచుకున్న వెంటనే గురు పాదుకం వెబ్‌సైట్ మరియు PadukaAI 100% పూర్తిగా మారతాయి.'
+                      : 'Selecting English or తెలుగు immediately switches 100% of Guru Padukam website & PadukaAI Concierge.'}
                   </span>
                 </div>
 
@@ -665,7 +964,7 @@ export const Profile: React.FC = () => {
                       <div>
                         <div className="font-cinzel font-bold text-maroon">Browser Push Notifications</div>
                         <div className="text-sm text-text-md">
-                          Instant desktop/mobile alerts for bookings, Apara checklists, 30-min samagri dispatch &amp; Purohit swaps.
+                          Instant alerts when a Purohit accepts/declines, ₹11 enters your Wallet, or samagri dispatches.
                         </div>
                       </div>
                     </label>
@@ -707,6 +1006,36 @@ export const Profile: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {selectedDetail && (
+        <BookingDetailsModal
+          booking={
+            selectedDetail.booking
+              ? bookings.find(b => b.id === selectedDetail.booking?.id) || selectedDetail.booking
+              : null
+          }
+          aparaBooking={
+            selectedDetail.apara
+              ? aparaBookings.find(a => a.id === selectedDetail.apara?.id) || selectedDetail.apara
+              : null
+          }
+          order={
+            selectedDetail.order
+              ? orders.find(o => o.id === selectedDetail.order?.id) || selectedDetail.order
+              : null
+          }
+          viewerRole="Devotee"
+          onClose={() => setSelectedDetail(null)}
+          onOpenInvoice={ord => {
+            setSelectedDetail(null);
+            setShowInvoiceOrder(ord);
+          }}
+        />
+      )}
+
+      {showInvoiceOrder && (
+        <InvoiceModal order={showInvoiceOrder} onClose={() => setShowInvoiceOrder(null)} />
+      )}
     </div>
   );
 };

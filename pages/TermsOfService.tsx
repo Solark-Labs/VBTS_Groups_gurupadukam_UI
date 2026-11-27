@@ -13,7 +13,7 @@ export const TermsOfService: React.FC = () => {
           </div>
           <h1 className="font-serif text-3xl sm:text-4xl font-bold mb-2">Terms &amp; Conditions</h1>
           <p className="text-sm text-cream/70 max-w-xl mx-auto">
-            Last Updated: November 2026 · Standard Terms of Use for gurupadukam.com
+            Last Updated: November 2026 · {BRAND_CONTACT.businessName} (gurupadukam.com)
           </p>
         </div>
       </section>
@@ -22,67 +22,78 @@ export const TermsOfService: React.FC = () => {
         <div className="bg-white border border-gold/20 p-8 sm:p-10 rounded-lg shadow-sm space-y-7 text-text-dk text-sm leading-relaxed">
           <div className="border-b border-gold/15 pb-6">
             <h2 className="text-xl font-bold text-maroon font-serif mb-2 flex items-center gap-2">
-              <CheckCircle2 size={18} className="text-gold" /> 1. Acceptance of Terms
+              <CheckCircle2 size={18} className="text-gold" /> 1. Platform Scope &amp; Acceptance
             </h2>
             <p className="text-text-md">
-              By accessing or using <strong>gurupadukam.com</strong> (&ldquo;Platform&rdquo;), operated by <strong>Guru Padukam</strong> (&ldquo;Company&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;), you agree to be bound by these Terms &amp; Conditions and all applicable laws. If you do not agree, please discontinue use of the Platform.
+              By accessing <strong>gurupadukam.com</strong>, operated by <strong>{BRAND_CONTACT.businessName}</strong> ({BRAND_CONTACT.legalEntityNote}), you agree to these Terms &amp; Conditions. Guru Padukam connects devotees with verified independent Vedic Purohits, Apara Peetas, and organic samagri suppliers.
             </p>
           </div>
 
           <div className="border-b border-gold/15 pb-6">
-            <h2 className="text-xl font-bold text-maroon font-serif mb-2">2. Eligibility &amp; User Accounts</h2>
-            <p className="text-text-md">
-              You must be at least 18 years of age (or using the Platform under the supervision of a parent/guardian) to create an account or place bookings/orders. You are responsible for maintaining the accuracy of your registration details, safeguarding your credentials, and all activity occurring under your account.
-            </p>
-          </div>
-
-          <div className="border-b border-gold/15 pb-6">
-            <h2 className="text-xl font-bold text-maroon font-serif mb-2">3. Marketplace Services, Bookings &amp; Payments</h2>
+            <h2 className="text-xl font-bold text-maroon font-serif mb-2">2. ₹11 Token Verification &amp; Muhurtham Finalization</h2>
             <ul className="list-disc pl-6 space-y-1.5 text-text-md">
-              <li><strong>Platform Role:</strong> The Platform connects users with independent service professionals/organizations and sells listed physical goods. Prices, availability, and service terms are displayed prior to confirmation.</li>
-              <li><strong>Booking Fees &amp; Pricing:</strong> Booking confirmation fees (such as the ₹11 platform token) and product prices are shown at checkout. Additional third-party or independent provider charges, if any, are agreed directly or explicitly stated.</li>
-              <li><strong>Taxes:</strong> Applicable taxes and shipping fees are calculated during checkout where required by law.</li>
+              <li><strong>₹11 Cashfree Token Verification:</strong> Requests are forwarded to your selected Purohit only after your ₹11 confirmation token is verified via Cashfree Payments (or debited from your Guru Padukam Wallet).</li>
+              <li><strong>Nakshatram &amp; Muhurtham Finalization:</strong> Upon receiving your verified request, the Purohit contacts you directly, checks Nakshatram and Panchangam suitability, updates the finalized date and Muhurtham time, and locks the booking. Upon finalization, the Guru Padukam team schedules reminders and doorstep pooja essentials.</li>
+              <li><strong>Purohit Cancellation Prior to Ritual:</strong> If a Purohit must cancel prior to the ceremony, they must state an explicit reason, and <strong>₹11 is automatically credited to your Guru Padukam Wallet</strong> so you can select the next available Purohit or contact our support team.</li>
             </ul>
           </div>
 
           <div className="border-b border-gold/15 pb-6">
-            <h2 className="text-xl font-bold text-maroon font-serif mb-2">4. Acceptable Use &amp; Intellectual Property</h2>
+            <h2 className="text-xl font-bold text-maroon font-serif mb-2">3. Cancellation Windows, Same-Day Rules &amp; Calendar Blocking</h2>
+            <ul className="list-disc pl-6 space-y-1.5 text-text-md">
+              <li><strong>Immediate Bookings:</strong> Live immediate Purohit bookings carry no self-cancellation option once confirmed.</li>
+              <li><strong>Same-Day Ceremonies:</strong> On the day of the ceremony, devotees cannot self-cancel; please speak directly with the Purohit, who holds sole discretion to accept or adjust the schedule.</li>
+              <li><strong>Pre-Event Standard Rituals (&ge; 3 Days):</strong> Cancellation or date swap requests are permitted at least <strong>3 days prior</strong> to the ceremony date and route to both Purohit and Admin.</li>
+              <li><strong>Major Ceremonies — Marriage, Griha Pravesh, Upanayanam (&ge; 10 Days):</strong> Swap or cancellation requests must be raised at least <strong>10 days prior</strong> and route to both Purohit and Guru Padukam Admin.</li>
+              <li><strong>No Refund Close to Ritual Date:</strong> Because Purohits block their calendar exclusively for your ceremony, cancellations within restricted windows without a valid reason carry zero refund.</li>
+            </ul>
+          </div>
+
+          <div className="border-b border-gold/15 pb-6">
+            <h2 className="text-xl font-bold text-maroon font-serif mb-2">4. Direct Advance Amount &amp; Dakshina Disclaimer</h2>
             <p className="text-text-md">
-              You agree not to misuse the Platform, submit fraudulent bookings, scrape content, or upload unlawful material. All trademarks, logos, text, graphics, and software on the Platform belong to Guru Padukam or its licensors and may not be reproduced without written permission.
+              {BRAND_CONTACT.businessName} collects only the <strong>&#8377;11 booking verification token</strong> online via Cashfree. Any Pooja Samagri cost, travel expense, or ceremony Dakshina/advance settled directly with the Purohit is a private arrangement between devotee and Purohit — <strong>{BRAND_CONTACT.businessName} does not intermediate, hold, or refund direct advances</strong>. Devotees are advised to record private advance details in their booking activity log and obtain mutual acknowledgement with the Purohit.
+            </p>
+          </div>
+
+          <div className="border-b border-gold/15 pb-6">
+            <h2 className="text-xl font-bold text-maroon font-serif mb-2">5. Marketplace Stores — Platform Intermediary &amp; Merchant Responsibility</h2>
+            <p className="text-text-md">
+              Pooja items, essentials, flowers, and return gifts listed in the Marketplace are offered and fulfilled by independent third-party merchants and pooja store owners. <strong>{BRAND_CONTACT.businessName}</strong> acts solely as a connecting technology platform; the <strong>respective store owner is solely responsible</strong> for item quality, authenticity, freshness, and order fulfillment. Once an order is accepted or dispatched by the store, it cannot be cancelled. If you experience any missing, damaged, or quality concern, <strong>{BRAND_CONTACT.businessName}&rsquo;s Support Team will step in to understand your concern and coordinate directly with the merchant on your behalf</strong> to seek replacement or resolution.
+            </p>
+          </div>
+
+          <div className="border-b border-gold/15 pb-6">
+            <h2 className="text-xl font-bold text-maroon font-serif mb-2">6. User Accounts, Conduct &amp; Intellectual Property</h2>
+            <p className="text-text-md">
+              You are responsible for maintaining the confidentiality of your account and providing accurate venue, Nakshatram, and contact details. All platform content, branding, and Vedic guides remain the intellectual property of {BRAND_CONTACT.businessName}.
             </p>
           </div>
 
           <div className="border-b border-gold/15 pb-6">
             <h2 className="text-xl font-bold text-maroon font-serif mb-2 flex items-center gap-2">
-              <AlertCircle size={18} className="text-gold" /> 5. Disclaimer &amp; Limitation of Liability
+              <AlertCircle size={18} className="text-gold" /> 7. Limitation of Liability &amp; Governing Law
             </h2>
             <p className="text-text-md">
-              Services and products are provided on an &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis. To the fullest extent permitted by applicable law, Guru Padukam shall not be liable for any indirect, incidental, special, or consequential damages arising from use of the Platform or delays beyond reasonable control (including force majeure events). Our total aggregate liability for any claim shall not exceed the amount paid by you to the Company for the specific transaction in question.
-            </p>
-          </div>
-
-          <div className="border-b border-gold/15 pb-6">
-            <h2 className="text-xl font-bold text-maroon font-serif mb-2">6. Governing Law &amp; Modifications</h2>
-            <p className="text-text-md">
-              These Terms are governed by the laws of India, and disputes shall be subject to the exclusive jurisdiction of competent courts in Telangana, India. We reserve the right to update these Terms at any time by posting revised terms on this page.
+              Platform services are provided &ldquo;as is&rdquo;. {BRAND_CONTACT.businessName} shall not be liable for indirect or consequential damages, and aggregate platform liability shall not exceed the amount paid directly to Guru Padukam for the specific transaction. Governed by the laws of India (jurisdiction: Telangana).
             </p>
           </div>
 
           <div>
             <h2 className="text-xl font-bold text-maroon font-serif mb-2 flex items-center gap-2">
-              <Phone size={18} className="text-gold" /> 7. Contact Us
+              <Phone size={18} className="text-gold" /> 8. Contact Us
             </h2>
             <div className="bg-cream p-4 rounded border border-gold/30 text-xs space-y-1">
-              <p><strong>Company:</strong> Guru Padukam (gurupadukam.com)</p>
+              <p><strong>Business Name:</strong> {BRAND_CONTACT.businessName} ({BRAND_CONTACT.legalEntityNote})</p>
+              <p><strong>Address:</strong> {BRAND_CONTACT.address}</p>
               <p><strong>Phone:</strong> {BRAND_CONTACT.phoneDisplay}</p>
               <p><strong>Email:</strong> {BRAND_CONTACT.email}</p>
-              <p><strong>Address:</strong> {BRAND_CONTACT.address}</p>
             </div>
           </div>
 
           <div className="pt-4 flex justify-between items-center text-xs">
             <Link to="/privacy" className="text-maroon hover:underline font-semibold">&larr; Privacy Policy</Link>
-            <Link to="/shipping-policy" className="text-maroon hover:underline font-semibold">Shipping Policy &rarr;</Link>
+            <Link to="/return-policy" className="text-maroon hover:underline font-semibold">Refund &amp; Cancellation Policy &rarr;</Link>
           </div>
         </div>
       </div>

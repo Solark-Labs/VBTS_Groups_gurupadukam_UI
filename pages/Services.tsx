@@ -3,9 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import { SERVICE_CATEGORIES, NADASWARAM_TROUPES, BRAND_CONTACT } from '../constants';
 import { useAppContext } from '../contexts/AppContext';
+import { localizeDynamic } from '../i18n/languages';
 
 export const Services: React.FC = () => {
-  const { t } = useAppContext();
+  const { t, language } = useAppContext();
   const [searchParams] = useSearchParams();
   const activeCat = searchParams.get('cat');
 
@@ -71,12 +72,22 @@ export const Services: React.FC = () => {
                 className="group bg-white border border-gold/15 p-6 hover:border-maroon/30 hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer text-center rounded-sm flex flex-col"
               >
                 <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">{cat.icon}</div>
-                <h3 className="font-cinzel text-xs font-bold tracking-widest uppercase text-text-dk group-hover:text-maroon transition-colors mb-1">{cat.name}</h3>
-                <p className="font-telugu text-[0.65rem] text-text-lt mb-3">{cat.nameTe}</p>
-                <p className="text-xs text-text-md leading-relaxed flex-1">{cat.description}</p>
+                <h3 className="font-cinzel text-xs font-bold tracking-widest uppercase text-text-dk group-hover:text-maroon transition-colors mb-1">
+                  {language === 'te' ? cat.nameTe : cat.name}
+                </h3>
+                <p className="font-telugu text-[0.65rem] text-text-lt mb-3">
+                  {language === 'te' ? cat.name : cat.nameTe}
+                </p>
+                <p className="text-xs text-text-md leading-relaxed flex-1">
+                  {localizeDynamic(cat.description, language)}
+                </p>
                 <div className="mt-4 pt-3 border-t border-gold/10 flex justify-between items-center">
-                  <span className="text-[0.6rem] text-text-lt">{cat.providerCount}+ providers</span>
-                  <span className="font-cinzel text-[0.6rem] font-bold text-maroon uppercase">{cat.badgeText}</span>
+                  <span className="text-[0.6rem] text-text-lt">
+                    {cat.providerCount}+ {language === 'te' ? 'సేవాదాతలు' : 'providers'}
+                  </span>
+                  <span className="font-cinzel text-[0.6rem] font-bold text-maroon uppercase">
+                    {localizeDynamic(cat.badgeText, language)}
+                  </span>
                 </div>
               </Link>
             ))}
@@ -90,10 +101,14 @@ export const Services: React.FC = () => {
           <div className="mb-10">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-2xl">🎵</span>
-              <div className="font-cinzel text-[0.65rem] tracking-[0.3em] uppercase text-maroon">Auspicious Music</div>
+              <div className="font-cinzel text-[0.65rem] tracking-[0.3em] uppercase text-maroon">
+                {language === 'te' ? 'మంగళ వాద్యం' : 'Auspicious Music'}
+              </div>
             </div>
-            <h2 className="font-cinzel text-2xl font-bold text-text-dk tracking-widest uppercase">Nadaswaram Troupes</h2>
-            <p className="font-telugu text-sm text-text-md mt-1">నాదస్వరం బృందాలు — Confirm with ₹11 token &amp; negotiate directly</p>
+            <h2 className="font-cinzel text-2xl font-bold text-text-dk tracking-widest uppercase">{t('svcNadaswaramTitle')}</h2>
+            <p className="font-telugu text-sm text-text-md mt-1">
+              {language === 'te' ? 'నాదస్వరం బృందాలు — ₹11 టోకెన్‌తో నిర్ధారించి నేరుగా మాట్లాడండి' : 'Confirm with ₹11 token & negotiate directly'}
+            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {NADASWARAM_TROUPES.map((troupe) => (
@@ -112,21 +127,21 @@ export const Services: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3 mb-5">
                   <div className="bg-cream/70 p-2.5 rounded-sm text-center">
                     <div className="font-cinzel text-sm font-bold text-maroon">{troupe.members}</div>
-                    <div className="text-[0.55rem] text-text-lt uppercase tracking-widest">Members</div>
+                    <div className="text-[0.55rem] text-text-lt uppercase tracking-widest">{language === 'te' ? 'సభ్యులు' : 'Members'}</div>
                   </div>
                   <div className="bg-cream/70 p-2.5 rounded-sm text-center">
                     <div className="font-cinzel text-sm font-bold text-maroon">{troupe.experience}yr</div>
-                    <div className="text-[0.55rem] text-text-lt uppercase tracking-widest">Experience</div>
+                    <div className="text-[0.55rem] text-text-lt uppercase tracking-widest">{t('experience')}</div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between border-t border-gold/10 pt-4">
                   <div>
-                    <div className="text-[0.6rem] text-text-lt uppercase tracking-widest">Booking</div>
-                    <div className="font-cinzel text-sm font-bold text-maroon">₹11 Token · Direct Quote</div>
+                    <div className="text-[0.6rem] text-text-lt uppercase tracking-widest">{language === 'te' ? 'బుకింగ్' : 'Booking'}</div>
+                    <div className="font-cinzel text-sm font-bold text-maroon">{t('directQuote')}</div>
                   </div>
                   <div className={`flex items-center gap-1.5 text-[0.6rem] font-bold uppercase tracking-widest ${troupe.availability === 'now' ? 'text-green-700' : troupe.availability === 'today' ? 'text-yellow-700' : 'text-text-lt'}`}>
                     <span className={`w-2 h-2 rounded-full ${troupe.availability === 'now' ? 'bg-green-500 animate-pulse' : troupe.availability === 'today' ? 'bg-yellow-500' : 'bg-gray-300'}`} />
-                    {troupe.availability === 'now' ? 'Available Now' : troupe.availability === 'today' ? 'Available Today' : 'Scheduled'}
+                    {troupe.availability === 'now' ? t('purAvailNow') : troupe.availability === 'today' ? t('purAvailToday') : t('purScheduled')}
                   </div>
                 </div>
                 <a
@@ -134,7 +149,7 @@ export const Services: React.FC = () => {
                   target="_blank" rel="noreferrer"
                   className="block text-center w-full mt-4 py-2.5 bg-maroon text-gold-pale font-cinzel text-[0.65rem] font-bold tracking-widest uppercase clip-btn hover:bg-maroon-md transition-colors"
                 >
-                  Enquire on WhatsApp
+                  {language === 'te' ? 'WhatsApp లో సంప్రదించండి' : 'Enquire on WhatsApp'}
                 </a>
               </div>
             ))}
@@ -172,9 +187,13 @@ export const Services: React.FC = () => {
 
       {/* CTA */}
       <section className="py-16 px-6 bg-maroon text-center">
-        <h2 className="font-cinzel text-2xl font-bold text-cream tracking-widest uppercase mb-3">We Assist You End-to-End</h2>
+        <h2 className="font-cinzel text-2xl font-bold text-cream tracking-widest uppercase mb-3">
+          {language === 'te' ? 'ప్రతి అడుగులో మేము సహాయం చేస్తాము' : 'We Assist You End-to-End'}
+        </h2>
         <p className="font-garamond text-lg text-cream/75 italic mb-7">
-          Call {BRAND_CONTACT.phoneDisplay} or chat on WhatsApp — we arrange everything for your event.
+          {language === 'te'
+            ? `${BRAND_CONTACT.phoneDisplay} కు కాల్ చేయండి లేదా WhatsApp లో మాట్లాడండి.`
+            : `Call ${BRAND_CONTACT.phoneDisplay} or chat on WhatsApp — we arrange everything for your event.`}
         </p>
         <a
           href={`https://wa.me/${BRAND_CONTACT.phoneRaw}?text=Hello%20Guru%20Padukam!%20I%20need%20help%20with%20pooja%20services.`}
@@ -182,7 +201,7 @@ export const Services: React.FC = () => {
           className="inline-flex items-center gap-3 bg-[#25D366] text-white font-cinzel font-bold tracking-widest uppercase px-8 py-3.5 clip-btn hover:bg-green-500 transition-colors"
         >
           <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="" className="w-5 h-5" />
-          Chat on WhatsApp
+          {language === 'te' ? 'WhatsApp లో చాట్ చేయండి' : 'Chat on WhatsApp'}
         </a>
       </section>
     </div>

@@ -20,6 +20,16 @@ export interface CartItem extends Product {
   qty: number;
 }
 
+export interface WalletTransaction {
+  id: string;
+  amount: number;
+  type: 'credit' | 'debit';
+  reason: string;
+  bookingId?: string;
+  paymentMethod?: 'Cashfree' | 'Wallet';
+  createdAt: string;
+}
+
 // ─── Users & Auth ─────────────────────────────────────────────────────────────
 export interface User {
   id: string;
@@ -32,8 +42,22 @@ export interface User {
   role: 'user' | 'purohit' | 'admin';
   preferredLanguage?: LanguageCode;
   profileImage?: string;
+  walletBalance?: number;
+  walletTransactions?: WalletTransaction[];
   createdAt: string;
   notifications?: { email: boolean; sms: boolean; push?: boolean };
+  // Purohit KYC & Role Policy Fields
+  aadhaarLast4?: string;
+  aadhaarDocPreview?: string;
+  kycVerified?: boolean;
+  kycRupeePaid?: boolean;
+  kycCfOrderId?: string;
+  kycCfPaymentId?: string;
+  kycVerifiedAt?: string;
+  readyToShowVerification?: boolean;
+  vedicSampradaya?: string;
+  experienceYears?: number;
+  acceptedRolePolicyAt?: string;
 }
 
 export interface RegistrationData {
@@ -47,6 +71,17 @@ export interface RegistrationData {
   role?: 'user' | 'purohit' | 'admin';
   preferredLanguage?: LanguageCode;
   profileImage?: string;
+  aadhaarLast4?: string;
+  aadhaarDocPreview?: string;
+  kycVerified?: boolean;
+  kycRupeePaid?: boolean;
+  kycCfOrderId?: string;
+  kycCfPaymentId?: string;
+  kycVerifiedAt?: string;
+  readyToShowVerification?: boolean;
+  vedicSampradaya?: string;
+  experienceYears?: number;
+  acceptedRolePolicyAt?: string;
 }
 
 // ─── GeoLocation ──────────────────────────────────────────────────────────────
@@ -98,6 +133,8 @@ export interface Purohit {
   languages: string[];
   location: string;
   verified: boolean;
+  aadhaarVerified?: boolean;
+  kycRupeeVerified?: boolean;
   completedPoojas: number;
   bio: string;
   galleryImages?: string[];
@@ -128,6 +165,14 @@ export interface PoojaPackage {
   popular?: boolean;
 }
 
+export interface BookingTimelineEvent {
+  id: string;
+  timestamp: string;
+  actor: 'Devotee' | 'Purohit' | 'Admin' | 'System';
+  action: string;
+  details?: string;
+}
+
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 export interface Booking {
   id: string;
@@ -146,8 +191,27 @@ export interface Booking {
   pincode: string;
   location?: GeoLocation;
   notes?: string;
-  status: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
+  status: 'Awaiting Purohit Approval' | 'Muhurtham Finalized' | 'Pending' | 'Confirmed' | 'Completed' | 'Rejected by Purohit' | 'Cancellation Requested' | 'Cancelled';
   total: number; // ₹11 booking confirmation token
+  bookingType?: 'immediate' | 'scheduled';
+  nakshatram?: string;
+  muhurthamFinalized?: boolean;
+  muhurthamFinalizedAt?: string;
+  guruPadukamTeamAction?: string;
+  advancePaidToPurohit?: number;
+  advanceAcknowledgedByDevotee?: boolean;
+  advanceAcknowledgedByPurohit?: boolean;
+  devoteeCancelStatus?: 'none' | 'requested' | 'approved' | 'rejected';
+  devoteeCancelReason?: string;
+  cancellationRoutedTo?: ('Purohit' | 'Admin')[];
+  timeline?: BookingTimelineEvent[];
+  paymentMethod?: 'Cashfree' | 'Wallet';
+  paymentStatus?: 'Pending' | 'Verified';
+  cashfreeOrderId?: string;
+  cashfreePaymentId?: string;
+  purohitActionReason?: string;
+  refundCreditedToWallet?: boolean;
+  rescheduleCount?: number;
   whatsappDispatchStatus?: 'Scheduled' | 'Sent';
   whatsappDispatchedAt?: string;
   reminderHoursBefore?: number;

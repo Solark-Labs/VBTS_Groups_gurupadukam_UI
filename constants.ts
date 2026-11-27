@@ -1,10 +1,13 @@
 import { Product, Purohit, ServiceCategory, PoojaPackage, NadaswaramTroupe, AparaPeeta } from './types';
 
 export const BRAND_CONTACT = {
+  businessName: 'Guru Padukam',
+  legalEntityNote: 'Udyam Registered Vedic & Pooja Services Enterprise',
   phoneDisplay: '+91 99497 30175',
   phoneRaw: '919949730175',
   email: 'care.gurupadukam@gmail.com',
-  address: 'Madhuranagar, Gollagudem, Khammam – 507002',
+  address: 'Madhuranagar, Gollagudem, Khammam – 507002, Telangana, India',
+  website: 'https://gurupadukam.com',
   bookingTokenFee: 11,
 };
 
