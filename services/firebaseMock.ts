@@ -45,6 +45,35 @@ import { getApiBaseUrl } from './paymentService';
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
+function mapFirebaseAuthError(err: any): Error {
+  const code = err?.code || '';
+  if (code === 'auth/configuration-not-found') {
+    return new Error(
+      'Firebase Authentication is not enabled yet. In Firebase Console → Authentication → click "Get Started" and enable Email/Password & Google Sign-In.'
+    );
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return new Error(
+      'This sign-in method is disabled in Firebase Console → Authentication → Sign-in method.'
+    );
+  }
+  if (code === 'auth/unauthorized-domain') {
+    return new Error(
+      'This domain is not authorized in Firebase Console → Authentication → Settings → Authorized domains.'
+    );
+  }
+  if (code === 'auth/email-already-in-use') {
+    return new Error('An account with this email already exists. Please sign in instead.');
+  }
+  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+    return new Error('Invalid email or password.');
+  }
+  if (code === 'auth/popup-closed-by-user') {
+    return new Error('Google sign-in popup was closed before completing.');
+  }
+  return err instanceof Error ? err : new Error('Authentication failed. Please try again.');
+}
+
 async function hashPassword(password: string): Promise<string> {
   if (typeof crypto !== 'undefined' && crypto.subtle) {
     const encoded = new TextEncoder().encode(`gp_salt_v1_${password}`);
@@ -199,7 +228,7 @@ export const firebaseMock = {
           await signInWithRedirect(auth, googleProvider);
           throw new Error('Redirecting to Google Sign-In...');
         }
-        throw err;
+        throw mapFirebaseAuthError(err);
       }
     },
 
@@ -231,7 +260,12 @@ export const firebaseMock = {
       const safeRole: 'user' | 'purohit' = data.role === 'purohit' ? 'purohit' : 'user';
 
       if (isFirebaseConfigured && auth && db) {
-        const cred = await createUserWithEmailAndPassword(auth, normalizedEmail, data.password);
+        let cred;
+        try {
+          cred = await createUserWithEmailAndPassword(auth, normalizedEmail, data.password);
+        } catch (err) {
+          throw mapFirebaseAuthError(err);
+        }
         const uid = cred.user.uid;
 
         const profilePhotoUrl = await uploadDataUrlToStorage(
@@ -357,7 +391,12 @@ export const firebaseMock = {
       }
 
       if (isFirebaseConfigured && auth && db) {
-        const cred = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+        let cred;
+        try {
+          cred = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+        } catch (err) {
+          throw mapFirebaseAuthError(err);
+        }
         const uid = cred.user.uid;
         const adminSnap = await getDoc(doc(db, 'admins', uid));
         const userSnap = await getDoc(doc(db, 'users', uid));
@@ -413,7 +452,12 @@ export const firebaseMock = {
 
       // 1. Check Firebase Auth + Firestore `admins/{uid}` if Firebase is configured
       if (isFirebaseConfigured && auth && db) {
-        const cred = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+        let cred;
+        try {
+          cred = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+        } catch (err) {
+          throw mapFirebaseAuthError(err);
+        }
         const uid = cred.user.uid;
         const adminSnap = await getDoc(doc(db, 'admins', uid));
         if (!adminSnap.exists()) {
