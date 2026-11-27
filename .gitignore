@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Build outputs
+dist/
+*.local
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.local
+
+# Runtime data & archives
+backend/data/
+*.zip
+.DS_Store
+Thumbs.db

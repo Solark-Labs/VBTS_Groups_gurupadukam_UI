@@ -339,13 +339,12 @@ export const PurohitDashboard: React.FC = () => {
                               ⚡ Immediate Booking
                             </span>
                           )}
-                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
-                            b.status === 'Muhurtham Finalized' || b.status === 'Confirmed'
-                              ? 'bg-green-50 text-green-800 border-green-200'
-                              : b.status === 'Rejected by Purohit' || b.status === 'Cancelled'
+                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${b.status === 'Muhurtham Finalized' || b.status === 'Confirmed'
+                            ? 'bg-green-50 text-green-800 border-green-200'
+                            : b.status === 'Rejected by Purohit' || b.status === 'Cancelled'
                               ? 'bg-red-50 text-red-700 border-red-200'
                               : 'bg-amber-50 text-amber-800 border-amber-200'
-                          }`}>
+                            }`}>
                             {b.status}
                           </span>
                           <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">

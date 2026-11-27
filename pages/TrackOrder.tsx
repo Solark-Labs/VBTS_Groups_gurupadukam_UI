@@ -89,25 +89,25 @@ export const TrackOrder: React.FC = () => {
   const displayOrders = hasSearched
     ? matchedOrders
     : user
-    ? orders.filter(o => o.userId === user.id || user.role === 'admin')
-    : [];
+      ? orders.filter(o => o.userId === user.id || user.role === 'admin')
+      : [];
 
   const displayBookings = hasSearched
     ? matchedBookings
     : user
-    ? bookings.filter(b => b.userId === user.id || user.role === 'admin')
-    : [];
+      ? bookings.filter(b => b.userId === user.id || user.role === 'admin')
+      : [];
 
   const displayApara = hasSearched
     ? matchedApara
     : user
-    ? aparaBookings.filter(b => b.userId === user.id || user.role === 'admin')
-    : [];
+      ? aparaBookings.filter(b => b.userId === user.id || user.role === 'admin')
+      : [];
 
   const displayTickets = user
     ? tickets.filter(t => t.userPhone === user.phone || user.role === 'admin')
     : hasSearched
-    ? tickets.filter(t => {
+      ? tickets.filter(t => {
         const digits = searchQuery.replace(/\D/g, '');
         return (
           t.id.toLowerCase() === searchQuery.trim().toLowerCase() ||
@@ -115,7 +115,7 @@ export const TrackOrder: React.FC = () => {
           (digits.length >= 10 && t.userPhone.replace(/\D/g, '').endsWith(digits.slice(-10)))
         );
       })
-    : [];
+      : [];
 
   const canCustomizeFood2DaysPrior = (ab: AparaBooking) => {
     if (!ab.foodEditableUntil) return true;
@@ -207,11 +207,10 @@ export const TrackOrder: React.FC = () => {
                         <p className="font-semibold text-sm text-text-dk mt-1">{b.purohitName} · <span className="text-maroon">{b.occasion}</span></p>
                         <p className="text-xs text-text-md mt-0.5">Scheduled: <strong>{b.date}</strong> at <strong>{b.time}</strong> · ₹{b.total} Token</p>
                       </div>
-                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
-                        b.whatsappDispatchStatus === 'Sent'
-                          ? 'bg-green-50 text-green-700 border-green-200'
-                          : 'bg-amber-50 text-amber-800 border-amber-200'
-                      }`}>
+                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${b.whatsappDispatchStatus === 'Sent'
+                        ? 'bg-green-50 text-green-700 border-green-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
                         {b.whatsappDispatchStatus === 'Sent' ? '✓ Map Sent to Purohit' : reminder.label}
                       </span>
                     </div>
@@ -309,11 +308,10 @@ export const TrackOrder: React.FC = () => {
                           Scheduled: <strong>{ab.date}</strong> at <strong>{ab.time}</strong> · {ab.purohitGroup} · {ab.attendeeCount} Attendees
                         </p>
                       </div>
-                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
-                        ab.whatsappDispatchStatus === 'Sent'
-                          ? 'bg-green-50 text-green-700 border-green-200'
-                          : 'bg-amber-50 text-amber-900 border-amber-200'
-                      }`}>
+                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${ab.whatsappDispatchStatus === 'Sent'
+                        ? 'bg-green-50 text-green-700 border-green-200'
+                        : 'bg-amber-50 text-amber-900 border-amber-200'
+                        }`}>
                         {ab.whatsappDispatchStatus === 'Sent' ? '✓ Checklist Sent to Peeta' : `1-Day Prior Alert: ${prior.formattedPrior}`}
                       </span>
                     </div>

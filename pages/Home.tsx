@@ -142,17 +142,17 @@ export const Home: React.FC = () => {
           <div className="max-w-7xl mx-auto px-6 flex flex-wrap justify-center md:justify-around gap-6">
             {(language === 'te'
               ? [
-                  { n: '₹11', label: 'టోకెన్ బుకింగ్ నిర్ధారణ' },
-                  { n: 'నేరుగా', label: 'పురోహితుడితో దక్షిణ మాట' },
-                  { n: 'నిమిషాల్లో', label: 'నిత్య పూజా సామగ్రి' },
-                  { n: 'ఇంటి వద్దకు', label: 'సంపూర్ణ పూజా వస్తువులు' },
-                ]
+                { n: '₹11', label: 'టోకెన్ బుకింగ్ నిర్ధారణ' },
+                { n: 'నేరుగా', label: 'పురోహితుడితో దక్షిణ మాట' },
+                { n: 'నిమిషాల్లో', label: 'నిత్య పూజా సామగ్రి' },
+                { n: 'ఇంటి వద్దకు', label: 'సంపూర్ణ పూజా వస్తువులు' },
+              ]
               : [
-                  { n: '₹11', label: 'Token Booking Confirmation' },
-                  { n: 'Direct', label: 'Direct Dakshina Negotiation' },
-                  { n: 'In Minutes', label: 'Everyday Pooja Essentials' },
-                  { n: 'Doorstep', label: 'Complete Event Supplies' },
-                ]
+                { n: '₹11', label: 'Token Booking Confirmation' },
+                { n: 'Direct', label: 'Direct Dakshina Negotiation' },
+                { n: 'In Minutes', label: 'Everyday Pooja Essentials' },
+                { n: 'Doorstep', label: 'Complete Event Supplies' },
+              ]
             ).map(stat => (
               <div key={stat.label} className="flex items-center gap-3">
                 <span className="font-serif text-lg font-bold text-gold">{stat.n}</span>
