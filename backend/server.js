@@ -7,6 +7,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -63,6 +64,8 @@ function sanitizeText(value, maxLen = 500) {
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const userAccountStore = new Map();
 const otpCodeStore = new Map();
+const emailOtpStore = new Map();
+const verifiedEmailStore = new Map();
 
 function hashPasswordScrypt(password, salt = crypto.randomBytes(16).toString('hex')) {
   const derived = crypto.scryptSync(String(password), salt, 64).toString('hex');
@@ -873,6 +876,74 @@ app.post('/api/auth/otp/verify', (req, res) => {
   }
   otpCodeStore.delete(cleanPhone);
   return res.json({ success: true, verified: true, phone: cleanPhone });
+});
+
+app.post('/api/auth/email/send-otp', async (req, res) => {
+  const email = sanitizeText(req.body?.email, 120).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+  }
+
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    return res.status(503).json({
+      success: false,
+      message: 'SMTP email server is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS on the backend.',
+    });
+  }
+
+  const code = String(crypto.randomInt(100000, 999999));
+  const codeHash = crypto.createHash('sha256').update(`${email}:${code}`).digest('hex');
+  emailOtpStore.set(email, { codeHash, expiresAt: Date.now() + 10 * 60 * 1000 });
+
+  try {
+    const port = Number(process.env.SMTP_PORT || 587);
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port,
+      secure: port === 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || `"Guru Padukam" <${smtpUser}>`,
+      to: email,
+      subject: 'Guru Padukam — Email Verification Code',
+      text: `Namaste!\n\nYour Guru Padukam email verification code is: ${code}\n\nThis code is valid for 10 minutes.\n\n— Guru Padukam Team`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #d4af37; border-radius: 8px; background: #fdfcf7;">
+          <h2 style="color: #52101e; margin-top: 0;">Guru Padukam — Email Verification</h2>
+          <p style="color: #3e2723;">Namaste! Use the 6-digit verification code below to verify your email address:</p>
+          <div style="font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #52101e; background: #f7f3eb; padding: 14px; text-align: center; border-radius: 6px; border: 1px solid #d4af37;">
+            ${code}
+          </div>
+          <p style="color: #7c6e65; font-size: 12px; margin-top: 16px;">This code expires in 10 minutes. If you did not request this, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+    return res.json({ success: true, message: 'Verification code sent to your email.' });
+  } catch (err) {
+    console.error('[SMTP] Failed to send verification email:', err?.message || err);
+    return res.status(502).json({ success: false, message: 'Failed to send verification email. Check SMTP settings.' });
+  }
+});
+
+app.post('/api/auth/email/verify-otp', (req, res) => {
+  const email = sanitizeText(req.body?.email, 120).toLowerCase();
+  const code = String(req.body?.code || '').trim();
+  const entry = emailOtpStore.get(email);
+  if (!entry || entry.expiresAt < Date.now()) {
+    return res.status(400).json({ success: false, message: 'Verification code expired or not requested.' });
+  }
+  const expectedHash = crypto.createHash('sha256').update(`${email}:${code}`).digest('hex');
+  if (entry.codeHash !== expectedHash) {
+    return res.status(401).json({ success: false, message: 'Invalid verification code.' });
+  }
+  emailOtpStore.delete(email);
+  verifiedEmailStore.set(email, { verifiedAt: Date.now(), expiresAt: Date.now() + 30 * 60 * 1000 });
+  return res.json({ success: true, verified: true, email });
 });
 
 app.get('/api/auth/me', requireAuth, (req, res) => {

@@ -9,6 +9,8 @@ import { PAN_INDIA_LANGUAGES, LanguageCode } from '../i18n/languages';
 import { CashfreeOrderResponse, createCashfreeTokenOrder } from '../services/paymentService';
 import { CashfreeCheckoutModal } from '../components/CashfreeCheckoutModal';
 
+const API_BASE_URL = String((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+
 export const Login: React.FC = () => {
   const {
     user,
@@ -36,6 +38,11 @@ export const Login: React.FC = () => {
   // Mandatory Registration Fields
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
+  const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
   const [regPhone, setRegPhone] = useState('');
   const [regAddress, setRegAddress] = useState('');
   const [regCity, setRegCity] = useState('');
@@ -201,8 +208,72 @@ export const Login: React.FC = () => {
     }
   };
 
+  const handleSendEmailOtp = async () => {
+    const cleanEmail = regEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      addToast(isTe ? 'దయచేసి సరైన ఇమెయిల్ చిరునామా నమోదు చేయండి.' : 'Please enter a valid email address first.', 'error');
+      return;
+    }
+    setSendingEmailOtp(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/email/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Could not send verification email.');
+      }
+      setEmailOtpSent(true);
+      addToast(
+        isTe ? 'మీ ఇమెయిల్‌కు 6-అంకెల ధృవీకరణ కోడ్ పంపబడింది.' : '6-digit verification code sent to your email.',
+        'success'
+      );
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to send verification email.', 'error');
+    } finally {
+      setSendingEmailOtp(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    const cleanEmail = regEmail.trim().toLowerCase();
+    if (emailOtpCode.trim().length !== 6) {
+      addToast(isTe ? '6-అంకెల కోడ్ నమోదు చేయండి.' : 'Enter the 6-digit verification code.', 'error');
+      return;
+    }
+    setVerifyingEmailOtp(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/email/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, code: emailOtpCode.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.verified) {
+        throw new Error(data.message || 'Invalid verification code.');
+      }
+      setEmailVerified(true);
+      setEmailOtpSent(false);
+      addToast(isTe ? 'ఇమెయిల్ విజయవంతంగా ధృవీకరించబడింది!' : 'Email verified successfully!', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Email verification failed.', 'error');
+    } finally {
+      setVerifyingEmailOtp(false);
+    }
+  };
+
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!emailVerified) {
+      addToast(
+        isTe ? 'దయచేసి ముందుగా మీ ఇమెయిల్‌ను OTP తో ధృవీకరించండి.' : 'Please verify your email address with the OTP before registering.',
+        'error'
+      );
+      return;
+    }
     if (role === 'admin') {
       addToast('Administrator accounts cannot be self-registered.', 'error');
       setRole('user');
@@ -492,20 +563,65 @@ export const Login: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                  {isTe ? 'ఇమెయిల్ చిరునామా *' : 'Email Address *'}
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-maroon">
+                    {isTe ? 'ఇమెయిల్ చిరునామా *' : 'Email Address *'}
+                  </label>
+                  {emailVerified ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                      <CheckCircle2 size={11} /> {isTe ? 'ధృవీకరించబడింది' : 'Verified'}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={sendingEmailOtp}
+                      onClick={handleSendEmailOtp}
+                      className="text-[11px] font-bold text-maroon bg-gold/20 hover:bg-gold/30 border border-gold/40 px-2 py-0.5 rounded transition-colors disabled:opacity-60"
+                    >
+                      {sendingEmailOtp
+                        ? (isTe ? 'పంపుతోంది…' : 'Sending…')
+                        : emailOtpSent
+                        ? (isTe ? 'మళ్లీ పంపండి' : 'Resend OTP')
+                        : (isTe ? 'ఇమెయిల్ ధృవీకరించండి' : 'Verify Email')}
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
                   <input
                     type="email"
                     required
                     value={regEmail}
-                    onChange={e => setRegEmail(e.target.value)}
+                    onChange={e => {
+                      setRegEmail(e.target.value);
+                      if (emailVerified) setEmailVerified(false);
+                      if (emailOtpSent) setEmailOtpSent(false);
+                    }}
                     placeholder={role === 'purohit' ? 'sharma.purohit@example.com' : 'devotee@example.com'}
                     className="w-full pl-9 pr-3 py-2.5 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                   />
                 </div>
+                {emailOtpSent && !emailVerified && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={emailOtpCode}
+                      onChange={e => setEmailOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder={isTe ? '6-అంకెల OTP' : '6-digit OTP'}
+                      className="flex-1 px-3 py-1.5 bg-white border border-gold/40 rounded text-xs font-mono focus:outline-none focus:border-maroon"
+                    />
+                    <button
+                      type="button"
+                      disabled={verifyingEmailOtp}
+                      onClick={handleVerifyEmailOtp}
+                      className="px-3 py-1.5 bg-maroon text-gold-pale text-xs font-bold rounded hover:bg-maroon-md disabled:opacity-60"
+                    >
+                      {verifyingEmailOtp ? '…' : (isTe ? 'నిర్ధారించండి' : 'Confirm OTP')}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
