@@ -5,6 +5,13 @@
 
 const API_BASE_URL = String((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
+function authHeaders(): Record<string, string> {
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('gp_auth_token') : null;
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
+}
+
 export interface CashfreeOrderResponse {
   success: boolean;
   mode: 'cashfree-live' | 'cashfree-sandbox-local';
@@ -113,7 +120,7 @@ export async function syncPurohitKycToBackend(params: {
   try {
     await fetch(`${API_BASE_URL}/api/purohit/kyc`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify(params),
     });
   } catch {
@@ -125,7 +132,7 @@ export async function syncBookingCreateToBackend(booking: unknown): Promise<void
   try {
     await fetch(`${API_BASE_URL}/api/bookings/create`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify(booking),
     });
   } catch {

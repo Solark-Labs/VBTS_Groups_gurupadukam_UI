@@ -106,6 +106,8 @@ interface AppContextType {
   removeToast: (id: string) => void;
 }
 
+const API_BASE_URL = String((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -152,8 +154,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return saved !== 'false';
   });
 
-  // Load initial data from mock Firebase
+  // Load initial data & verify JWT session with backend
   useEffect(() => {
+    const token = localStorage.getItem('gp_auth_token');
+    if (token) {
+      fetch(`${API_BASE_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(res => (res.ok ? res.json() : Promise.reject(new Error('Invalid session'))))
+        .then(data => {
+          if (data?.user?.role) {
+            setUser(prev => {
+              if (!prev) return prev;
+              const verified = { ...prev, role: data.user.role, email: data.user.email, id: data.user.id };
+              localStorage.setItem('gp_user', JSON.stringify(verified));
+              return verified;
+            });
+          }
+        })
+        .catch(() => {
+          // If backend rejects token (401), clear tampered/expired session
+        });
+    }
     firebaseMock.db.getProducts().then(setProducts);
     firebaseMock.db.getOrders().then(setOrders);
     firebaseMock.db.getPurohits().then(setPurohits);
@@ -196,11 +218,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const t = useCallback((key: keyof TranslationKeys) => getTranslation(language, key), [language]);
 
-  // --- Auth ---
-  const login = async (email: string, phone?: string, password?: string): Promise<boolean> => {
+  // --- Auth (Server-backed via /api/auth/*) ---
+  const login = async (email: string, _phone?: string, password?: string): Promise<boolean> => {
     setIsAuthLoading(true);
     try {
-      const existingUser = await firebaseMock.auth.login(email, phone, password);
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password: password || '' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success || !data.user || !data.token) {
+        throw new Error(data.message || 'Invalid email or password.');
+      }
+      const existingUser: User = data.user;
+      localStorage.setItem('gp_auth_token', data.token);
       setUser(existingUser);
       localStorage.setItem('gp_user', JSON.stringify(existingUser));
       if (existingUser.preferredLanguage === 'te' || existingUser.preferredLanguage === 'en') {
@@ -220,7 +252,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const register = async (data: RegistrationData): Promise<boolean> => {
     setIsAuthLoading(true);
     try {
-      const newUser = await firebaseMock.auth.register(data);
+      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.success || !body.user || !body.token) {
+        throw new Error(body.message || 'Registration failed. Please try again.');
+      }
+      const newUser: User = { ...body.user, preferredLanguage: data.preferredLanguage || 'en', profileImage: data.profileImage };
+      localStorage.setItem('gp_auth_token', body.token);
       setUser(newUser);
       localStorage.setItem('gp_user', JSON.stringify(newUser));
       if (newUser.preferredLanguage === 'te' || newUser.preferredLanguage === 'en') {
@@ -252,6 +294,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('gp_user');
+    localStorage.removeItem('gp_auth_token');
     setCart([]);
     localStorage.removeItem('gp_cart');
     setCartOpen(false);

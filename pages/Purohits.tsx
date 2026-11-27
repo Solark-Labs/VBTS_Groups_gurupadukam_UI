@@ -44,7 +44,7 @@ export const Purohits: React.FC = () => {
   const [selectedPurohit, setSelectedPurohit] = useState<Purohit | null>(null);
   const [showSplash, setShowSplash] = useState<boolean>(() => {
     try {
-      return sessionStorage.getItem('gp_purohits_splash_seen') !== '1';
+      return localStorage.getItem('gp_purohits_splash_seen') !== '1';
     } catch {
       return false;
     }
@@ -63,7 +63,7 @@ export const Purohits: React.FC = () => {
 
   const dismissSplash = () => {
     try {
-      sessionStorage.setItem('gp_purohits_splash_seen', '1');
+      localStorage.setItem('gp_purohits_splash_seen', '1');
     } catch {
       // Ignore storage error
     }
@@ -156,8 +156,8 @@ export const Purohits: React.FC = () => {
       return;
     }
     const cleanPhone = bookPhone.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      addToast('Please enter a valid 10-digit mobile number for ceremony coordination.', 'error');
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      addToast('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.', 'error');
       return;
     }
     if (!bookAddress.trim()) {

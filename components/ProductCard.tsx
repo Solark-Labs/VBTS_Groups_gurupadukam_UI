@@ -31,14 +31,14 @@ export const ProductCard: React.FC<Props> = ({ product, onQuickView }) => {
           loading="lazy"
         />
         
-        {/* Action Overlay (visible on mobile/touch, hover-enhanced on desktop) */}
-        <div className="absolute inset-x-0 bottom-0 md:inset-0 bg-gradient-to-t from-maroon-dk/70 via-maroon-dk/20 to-transparent md:bg-maroon-dk/40 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center gap-3 p-3 md:p-0 md:backdrop-blur-[2px]">
+        {/* Action Overlay (always visible on mobile & desktop so touch/mouse users can add directly) */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-maroon-dk/75 via-maroon-dk/25 to-transparent opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 p-3">
           {onQuickView && (
             <button 
               type="button"
               aria-label={t('quickView')}
               onClick={(e) => { e.stopPropagation(); onQuickView(product); }}
-              className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white text-maroon flex items-center justify-center hover:bg-gold hover:text-white transition-colors shadow-lg md:transform md:translate-y-4 md:group-hover:translate-y-0 duration-500"
+              className="w-10 h-10 rounded-full bg-white text-maroon flex items-center justify-center hover:bg-gold hover:text-white transition-colors shadow-lg"
               title={t('quickView')}
             >
               <Eye size={18} />
@@ -49,7 +49,7 @@ export const ProductCard: React.FC<Props> = ({ product, onQuickView }) => {
             aria-label={t('addToCart')}
             onClick={(e) => { e.stopPropagation(); addToCart(product, 1); }}
             disabled={product.stock === 0}
-            className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-maroon text-gold-pale flex items-center justify-center hover:bg-gold hover:text-white transition-colors shadow-lg md:transform md:translate-y-4 md:group-hover:translate-y-0 duration-500 delay-75 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-10 h-10 rounded-full bg-maroon text-gold-pale flex items-center justify-center hover:bg-gold hover:text-white transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             title={t('addToCart')}
           >
             <ShoppingBag size={18} />

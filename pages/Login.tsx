@@ -91,6 +91,12 @@ export const Login: React.FC = () => {
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const cleanRegPhone = regPhone.replace(/\D/g, '');
+    if (!/^[6-9]\d{9}$/.test(cleanRegPhone)) {
+      addToast('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.', 'error');
+      return;
+    }
+
     if (regPassword.length < 6) {
       addToast('Password must be at least 6 characters long.', 'error');
       return;

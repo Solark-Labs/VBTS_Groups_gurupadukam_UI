@@ -39,7 +39,9 @@ export const Home: React.FC = () => {
               <div className="inline-flex items-center gap-2 border border-gold/30 bg-gold/10 px-3.5 py-1.5 rounded-full mb-4">
                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
                 <span className="text-[12px] font-medium tracking-wide text-gold-lt">
-                  {availableNowCount} {t('heroPill')}
+                  {language === 'te'
+                    ? `${purohits.length} ధృవీకరించబడిన పురోహితులు · ${availableNowCount} ఇప్పుడు అందుబాటులో`
+                    : `${purohits.length} Verified Purohits · ${availableNowCount} Available Now`}
                 </span>
               </div>
 

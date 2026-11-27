@@ -38,7 +38,11 @@ export const Apara: React.FC = () => {
 
   // Filters
   const [showSplash, setShowSplash] = useState<boolean>(() => {
-    return sessionStorage.getItem('gp_apara_splash_seen') !== '1';
+    try {
+      return localStorage.getItem('gp_apara_splash_seen') !== '1';
+    } catch {
+      return false;
+    }
   });
   const [ceremonyFilter, setCeremonyFilter] = useState('');
   const [modeFilter, setModeFilter] = useState<'all' | AparaRitualMode>('all');
@@ -275,7 +279,11 @@ export const Apara: React.FC = () => {
 
   const priorPreviewInfo = getAparaPriorDispatchInfo(bookDate);
   const dismissSplash = () => {
-    sessionStorage.setItem('gp_apara_splash_seen', '1');
+    try {
+      localStorage.setItem('gp_apara_splash_seen', '1');
+    } catch {
+      // Ignore storage error
+    }
     setShowSplash(false);
   };
 

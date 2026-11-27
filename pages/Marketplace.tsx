@@ -43,7 +43,7 @@ export const Marketplace: React.FC = () => {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [showSplash, setShowSplash] = useState<boolean>(() => {
     try {
-      return sessionStorage.getItem('gp_marketplace_splash_seen') !== '1';
+      return localStorage.getItem('gp_marketplace_splash_seen') !== '1';
     } catch {
       return false;
     }
@@ -59,7 +59,7 @@ export const Marketplace: React.FC = () => {
 
   const dismissSplash = () => {
     try {
-      sessionStorage.setItem('gp_marketplace_splash_seen', '1');
+      localStorage.setItem('gp_marketplace_splash_seen', '1');
     } catch {
       // Ignore storage error
     }

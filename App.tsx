@@ -32,7 +32,7 @@ const BrandSplashScreen: React.FC = () => {
   const { language } = useAppContext();
   const [visible, setVisible] = useState<boolean>(() => {
     try {
-      return sessionStorage.getItem('gp_brand_splash_seen') !== '1';
+      return localStorage.getItem('gp_brand_splash_seen') !== '1';
     } catch {
       return true;
     }
@@ -40,7 +40,7 @@ const BrandSplashScreen: React.FC = () => {
 
   const dismiss = () => {
     try {
-      sessionStorage.setItem('gp_brand_splash_seen', '1');
+      localStorage.setItem('gp_brand_splash_seen', '1');
     } catch {
       // Ignore storage error
     }
