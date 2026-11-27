@@ -40,6 +40,7 @@ export const Login: React.FC = () => {
   const [regEmail, setRegEmail] = useState('');
   const [emailOtpSent, setEmailOtpSent] = useState(false);
   const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [emailOtpToken, setEmailOtpToken] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
   const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
@@ -225,6 +226,7 @@ export const Login: React.FC = () => {
       if (!res.ok || !data.success) {
         throw new Error(data.message || 'Could not send verification email.');
       }
+      if (data.otpToken) setEmailOtpToken(data.otpToken);
       setEmailOtpSent(true);
       addToast(
         isTe ? 'మీ ఇమెయిల్‌కు 6-అంకెల ధృవీకరణ కోడ్ పంపబడింది.' : '6-digit verification code sent to your email.',
@@ -248,7 +250,7 @@ export const Login: React.FC = () => {
       const res = await fetch(`${API_BASE_URL}/api/auth/email/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, code: emailOtpCode.trim() }),
+        body: JSON.stringify({ email: cleanEmail, code: emailOtpCode.trim(), otpToken: emailOtpToken }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.verified) {
@@ -609,6 +611,12 @@ export const Login: React.FC = () => {
                       maxLength={6}
                       value={emailOtpCode}
                       onChange={e => setEmailOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleVerifyEmailOtp();
+                        }
+                      }}
                       placeholder={isTe ? '6-అంకెల OTP' : '6-digit OTP'}
                       className="flex-1 px-3 py-1.5 bg-white border border-gold/40 rounded text-xs font-mono focus:outline-none focus:border-maroon"
                     />

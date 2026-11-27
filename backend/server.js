@@ -896,7 +896,9 @@ app.post('/api/auth/email/send-otp', async (req, res) => {
 
   const code = String(crypto.randomInt(100000, 999999));
   const codeHash = crypto.createHash('sha256').update(`${email}:${code}`).digest('hex');
-  emailOtpStore.set(email, { codeHash, expiresAt: Date.now() + 10 * 60 * 1000 });
+  const expiresAt = Date.now() + 10 * 60 * 1000;
+  emailOtpStore.set(email, { codeHash, expiresAt });
+  const otpToken = signAuthToken({ purpose: 'email_otp', email, codeHash, expMs: expiresAt }, 600);
 
   try {
     const port = Number(process.env.SMTP_PORT || 587);
@@ -923,7 +925,7 @@ app.post('/api/auth/email/send-otp', async (req, res) => {
         </div>
       `,
     });
-    return res.json({ success: true, message: 'Verification code sent to your email.' });
+    return res.json({ success: true, otpToken, message: 'Verification code sent to your email.' });
   } catch (err) {
     console.error('[SMTP] Failed to send verification email:', err?.message || err);
     return res.status(502).json({ success: false, message: 'Failed to send verification email. Check SMTP settings.' });
@@ -933,11 +935,28 @@ app.post('/api/auth/email/send-otp', async (req, res) => {
 app.post('/api/auth/email/verify-otp', (req, res) => {
   const email = sanitizeText(req.body?.email, 120).toLowerCase();
   const code = String(req.body?.code || '').trim();
+  const otpToken = typeof req.body?.otpToken === 'string' ? req.body.otpToken : '';
+
+  const expectedHash = crypto.createHash('sha256').update(`${email}:${code}`).digest('hex');
+
+  // Prefer stateless signed otpToken (works across Vercel serverless instances)
+  if (otpToken) {
+    const claims = verifyAuthToken(otpToken);
+    if (!claims || claims.purpose !== 'email_otp' || claims.email !== email || (claims.expMs && claims.expMs < Date.now())) {
+      return res.status(400).json({ success: false, message: 'Verification code expired or invalid.' });
+    }
+    if (claims.codeHash !== expectedHash) {
+      return res.status(401).json({ success: false, message: 'Invalid verification code.' });
+    }
+    emailOtpStore.delete(email);
+    verifiedEmailStore.set(email, { verifiedAt: Date.now(), expiresAt: Date.now() + 30 * 60 * 1000 });
+    return res.json({ success: true, verified: true, email });
+  }
+
   const entry = emailOtpStore.get(email);
   if (!entry || entry.expiresAt < Date.now()) {
     return res.status(400).json({ success: false, message: 'Verification code expired or not requested.' });
   }
-  const expectedHash = crypto.createHash('sha256').update(`${email}:${code}`).digest('hex');
   if (entry.codeHash !== expectedHash) {
     return res.status(401).json({ success: false, message: 'Invalid verification code.' });
   }
