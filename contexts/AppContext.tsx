@@ -4,6 +4,8 @@ import {
   GeoLocation, AparaPeeta, AparaBooking, AparaReview, SupportTicket, EventNotification, RegistrationData
 } from '../types';
 import { firebaseMock } from '../services/firebaseMock';
+import { getFirebaseMessagingInstance, isFirebaseConfigured } from '../services/firebase';
+import { getToken, onMessage } from 'firebase/messaging';
 import {
   syncBookingCreateToBackend,
   syncBookingNoteToBackend,
@@ -12,7 +14,6 @@ import {
   syncPurohitKycToBackend,
 } from '../services/paymentService';
 import { getBookingCancellationPolicy } from '../utils/bookingRules';
-import { PUROHITS, APARA_PEETAS } from '../constants';
 import { LanguageCode, TranslationKeys, getTranslation } from '../i18n/languages';
 
 interface AppContextType {
@@ -23,13 +24,22 @@ interface AppContextType {
 
   // Auth
   user: User | null;
+<<<<<<< HEAD
   login: (email: string, phone?: string, password?: string) => Promise<boolean>;
   register: (data: RegistrationData) => Promise<boolean>;
+=======
+  login: (email: string, password: string) => Promise<User>;
+  adminLogin: (email: string, password: string) => Promise<User>;
+  signInWithGoogle: () => Promise<User>;
+  resetPassword: (email: string) => Promise<void>;
+  register: (data: RegistrationData) => Promise<User>;
+>>>>>>> c8c5fd8 (Added Firebase)
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   isAdmin: boolean;
   isAuthLoading: boolean;
+  seedCatalogToFirestore: () => Promise<void>;
 
   // Cart
   cart: CartItem[];
@@ -134,9 +144,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [purohits, setPurohits] = useState<Purohit[]>(PUROHITS);
+  const [purohits, setPurohits] = useState<Purohit[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [aparaPeetas, setAparaPeetas] = useState<AparaPeeta[]>(APARA_PEETAS);
+  const [aparaPeetas, setAparaPeetas] = useState<AparaPeeta[]>([]);
   const [aparaBookings, setAparaBookings] = useState<AparaBooking[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [notifications, setNotifications] = useState<EventNotification[]>([]);
@@ -154,6 +164,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return saved !== 'false';
   });
 
+<<<<<<< HEAD
   // Load initial data & verify JWT session with backend
   useEffect(() => {
     const token = localStorage.getItem('gp_auth_token');
@@ -176,6 +187,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // If backend rejects token (401), clear tampered/expired session
         });
     }
+=======
+  const refreshCloudData = useCallback(() => {
+>>>>>>> c8c5fd8 (Added Firebase)
     firebaseMock.db.getProducts().then(setProducts);
     firebaseMock.db.getOrders().then(setOrders);
     firebaseMock.db.getPurohits().then(setPurohits);
@@ -185,6 +199,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     firebaseMock.db.getTickets().then(setTickets);
     firebaseMock.db.getNotifications().then(setNotifications);
   }, []);
+
+  // Load initial data from Firebase / local fallback + complete any Google redirect sign-in
+  useEffect(() => {
+    refreshCloudData();
+    firebaseMock.auth.handleGoogleRedirectResult().then((redirectUser) => {
+      if (redirectUser) {
+        setUser(redirectUser);
+        localStorage.setItem('gp_user', JSON.stringify(redirectUser));
+        refreshCloudData();
+        addToast(`Welcome, ${redirectUser.name}!`, 'success');
+      }
+    });
+  }, [refreshCloudData]);
 
   // Sync Cart
   useEffect(() => {
@@ -218,6 +245,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const t = useCallback((key: keyof TranslationKeys) => getTranslation(language, key), [language]);
 
+<<<<<<< HEAD
   // --- Auth (Server-backed via /api/auth/*) ---
   const login = async (email: string, _phone?: string, password?: string): Promise<boolean> => {
     setIsAuthLoading(true);
@@ -233,6 +261,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       const existingUser: User = data.user;
       localStorage.setItem('gp_auth_token', data.token);
+=======
+  // --- Auth ---
+  const login = async (email: string, password: string): Promise<User> => {
+    setIsAuthLoading(true);
+    try {
+      const existingUser = await firebaseMock.auth.login(email, password);
+>>>>>>> c8c5fd8 (Added Firebase)
       setUser(existingUser);
       localStorage.setItem('gp_user', JSON.stringify(existingUser));
       if (existingUser.preferredLanguage === 'te' || existingUser.preferredLanguage === 'en') {
@@ -240,16 +275,78 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         localStorage.setItem('gp_lang', existingUser.preferredLanguage);
       }
       addToast(`Welcome back, ${existingUser.name}!`, 'success');
+<<<<<<< HEAD
       return true;
     } catch (error) {
       addToast(error instanceof Error ? error.message : 'Login failed. Please check your credentials.', 'error');
       return false;
+=======
+      return existingUser;
+    } catch (error: any) {
+      addToast(error?.message || 'Login failed. Please check your credentials.', 'error');
+      throw error;
+>>>>>>> c8c5fd8 (Added Firebase)
     } finally {
       setIsAuthLoading(false);
     }
   };
 
+<<<<<<< HEAD
   const register = async (data: RegistrationData): Promise<boolean> => {
+=======
+  const adminLogin = async (email: string, password: string): Promise<User> => {
+    setIsAuthLoading(true);
+    try {
+      const adminUser = await firebaseMock.auth.verifyAdminLogin(email, password);
+      setUser(adminUser);
+      localStorage.setItem('gp_user', JSON.stringify(adminUser));
+      addToast('Administrator session verified.', 'success');
+      return adminUser;
+    } catch (error: any) {
+      addToast(error?.message || 'Administrator verification failed.', 'error');
+      throw error;
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const signInWithGoogle = async (): Promise<User> => {
+    setIsAuthLoading(true);
+    try {
+      const googleUser = await firebaseMock.auth.signInWithGoogle();
+      setUser(googleUser);
+      localStorage.setItem('gp_user', JSON.stringify(googleUser));
+      if (googleUser.preferredLanguage === 'te' || googleUser.preferredLanguage === 'en') {
+        setLanguageState(googleUser.preferredLanguage);
+        localStorage.setItem('gp_lang', googleUser.preferredLanguage);
+      }
+      refreshCloudData();
+      if (!googleUser.phone || !googleUser.address) {
+        addToast(`Welcome, ${googleUser.name}! Please add your 10-digit mobile & address in Profile for bookings.`, 'info');
+      } else {
+        addToast(`Welcome back, ${googleUser.name}!`, 'success');
+      }
+      return googleUser;
+    } catch (error: any) {
+      addToast(error?.message || 'Google sign-in failed.', 'error');
+      throw error;
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const resetPassword = async (email: string): Promise<void> => {
+    try {
+      await firebaseMock.auth.resetPassword(email);
+      addToast('Password reset link sent to your email.', 'success');
+    } catch (error: any) {
+      addToast(error?.message || 'Unable to send password reset email.', 'error');
+      throw error;
+    }
+  };
+
+  const register = async (data: RegistrationData): Promise<User> => {
+>>>>>>> c8c5fd8 (Added Firebase)
     setIsAuthLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
@@ -280,18 +377,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           readyToShowVerification: Boolean(newUser.readyToShowVerification),
           vedicSampradaya: newUser.vedicSampradaya,
         });
+        firebaseMock.db.getPurohits().then(setPurohits);
       }
       addToast(`Namaste ${newUser.name}, your account is registered!`, 'success');
+<<<<<<< HEAD
       return true;
     } catch (error) {
       addToast(error instanceof Error ? error.message : 'Registration failed. Please try again.', 'error');
       return false;
+=======
+      return newUser;
+    } catch (error: any) {
+      addToast(error?.message || 'Registration failed. Please try again.', 'error');
+      throw error;
+>>>>>>> c8c5fd8 (Added Firebase)
     } finally {
       setIsAuthLoading(false);
     }
   };
 
   const logout = () => {
+    firebaseMock.auth.logout();
     setUser(null);
     localStorage.removeItem('gp_user');
     localStorage.removeItem('gp_auth_token');
@@ -301,6 +407,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addToast('Logged out successfully.', 'info');
   };
 
+<<<<<<< HEAD
   const changePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
     if (!user) return false;
     try {
@@ -311,6 +418,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addToast(error instanceof Error ? error.message : 'Failed to update password.', 'error');
       return false;
     }
+=======
+  const seedCatalogToFirestore = async () => {
+    const counts = await firebaseMock.db.seedCatalogToFirestore();
+    const [prods, purs, peetas] = await Promise.all([
+      firebaseMock.db.getProducts(),
+      firebaseMock.db.getPurohits(),
+      firebaseMock.db.getAparaPeetas(),
+    ]);
+    setProducts(prods);
+    setPurohits(purs);
+    setAparaPeetas(peetas);
+    addToast(
+      `Synced to Firebase: ${counts.products} products, ${counts.purohits} purohits, ${counts.aparaPeetas} Apara Peetas.`,
+      'success'
+    );
+>>>>>>> c8c5fd8 (Added Firebase)
   };
 
   const updateProfile = async (data: Partial<User>) => {
@@ -412,9 +535,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setPushPermission(result);
       if (result === 'granted') {
         setPushEnabled(true);
+        if ('serviceWorker' in navigator) {
+          const swReg = await navigator.serviceWorker
+            .register('/firebase-messaging-sw.js')
+            .catch(() => null);
+          if (isFirebaseConfigured && swReg) {
+            const messaging = await getFirebaseMessagingInstance();
+            const vapidKey = (import.meta as any).env?.VITE_FIREBASE_VAPID_KEY;
+            if (messaging && vapidKey) {
+              await getToken(messaging, { vapidKey, serviceWorkerRegistration: swReg }).catch(() => null);
+            }
+          }
+        }
         addToast('Live Push Notifications enabled! 🙏', 'success');
         new Notification('Guru Padukam Push Alerts Enabled 🙏', {
-          body: 'You will receive real-time Purohit arrival, Apara checklist & order updates.',
+          body: 'You will receive real-time Purohit arrival, ritual reminders, Apara checklist & order updates.',
           icon: '/logo.png',
         });
         return true;
@@ -426,6 +561,70 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return false;
     }
   }, [addToast, setPushEnabled]);
+
+  // Listen for foreground Firebase Cloud Messaging push alerts
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    let unsubscribe: (() => void) | undefined;
+    getFirebaseMessagingInstance().then((messaging) => {
+      if (!messaging) return;
+      unsubscribe = onMessage(messaging, (payload) => {
+        const title = payload.notification?.title || 'Guru Padukam Update';
+        const message = payload.notification?.body || 'You have a new ritual or order notification.';
+        triggerNotification({ title, message, type: 'info' });
+      });
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [triggerNotification]);
+
+  // Automatic Ritual & 30-Min Samagri Push Reminder Watcher
+  useEffect(() => {
+    if (!pushEnabled || bookings.length === 0) return;
+    const checkReminders = () => {
+      const now = Date.now();
+      let sentKeys: string[] = [];
+      try {
+        sentKeys = JSON.parse(localStorage.getItem('gp_sent_reminders') || '[]');
+      } catch {
+        sentKeys = [];
+      }
+
+      bookings.forEach((b) => {
+        if (b.status !== 'Confirmed' && b.status !== 'Muhurtham Finalized') return;
+        const eventMs = new Date(`${b.date}T${b.time || '09:00'}`).getTime();
+        if (Number.isNaN(eventMs)) return;
+        const diffMins = (eventMs - now) / 60000;
+        const reminderKey = `${b.id}_${b.date}_${b.time}`;
+
+        if (diffMins > 0 && diffMins <= 120 && !sentKeys.includes(`${reminderKey}_2h`)) {
+          sentKeys.push(`${reminderKey}_2h`);
+          localStorage.setItem('gp_sent_reminders', JSON.stringify(sentKeys.slice(-100)));
+          triggerNotification({
+            title: `Upcoming Ritual Reminder · ${b.occasion}`,
+            message: `${b.purohitName} is scheduled at ${b.time} (${b.date}). Please keep pooja space ready.`,
+            type: 'info',
+            bookingId: b.id,
+          });
+        }
+        if (diffMins > 0 && diffMins <= 35 && b.samagriMode === 'marketplace-30min' && !sentKeys.includes(`${reminderKey}_30m`)) {
+          sentKeys.push(`${reminderKey}_30m`);
+          localStorage.setItem('gp_sent_reminders', JSON.stringify(sentKeys.slice(-100)));
+          triggerNotification({
+            title: `30-Min Pooja Essentials Alert`,
+            message: `Fresh samagri dispatch window active for ${b.occasion} (${b.id}).`,
+            type: 'warning',
+            bookingId: b.id,
+          });
+        }
+      });
+    };
+
+    checkReminders();
+    const timer = setInterval(checkReminders, 60000);
+    return () => clearInterval(timer);
+  }, [bookings, pushEnabled, triggerNotification]);
 
   const sendTestPush = useCallback(() => {
     triggerNotification({
@@ -1146,7 +1345,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       language, setLanguage, t,
+<<<<<<< HEAD
       user, login, register, logout, updateProfile, changePassword, isAdmin, isAuthLoading,
+=======
+      user, login, adminLogin, signInWithGoogle, resetPassword, register, logout, updateProfile, isAdmin, isAuthLoading, seedCatalogToFirestore,
+>>>>>>> c8c5fd8 (Added Firebase)
       cart, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, isCartOpen, setCartOpen,
       products, updateProduct, addProduct, deleteProduct, orders, placeOrder, updateOrderStatus,
       walletBalance, walletTransactions, debitWalletForBooking,

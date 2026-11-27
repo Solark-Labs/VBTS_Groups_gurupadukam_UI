@@ -15,6 +15,8 @@ import fetch from 'node-fetch';
 import rateLimit from 'express-rate-limit';
 import { WebSocketServer, WebSocket } from 'ws';
 
+dotenv.config({ path: path.resolve(import.meta.dirname, '..', '.env') });
+dotenv.config({ path: path.resolve(import.meta.dirname, '.env') });
 dotenv.config({ path: '.env' });
 dotenv.config({ path: '.env.local', override: true });
 
@@ -160,11 +162,56 @@ const strictLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests', message: 'Too many payment or booking attempts. Please wait a moment.' },
 });
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts', message: 'Too many authentication attempts. Please wait 15 minutes.' },
+});
 app.use('/api', apiLimiter);
+app.use('/api/auth', authLimiter);
 app.use('/api/payments', strictLimiter);
 app.use('/api/purohit/kyc', strictLimiter);
 app.use('/api/bookings', strictLimiter);
 app.use('/api/tickets', strictLimiter);
+
+app.post('/api/auth/verify-admin', (req, res) => {
+  const email = sanitizeText(req.body?.email, 120).toLowerCase();
+  const password = String(req.body?.password || '');
+  const configuredEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const configuredPassword = String(process.env.ADMIN_PASSWORD || '');
+
+  if (!configuredEmail || !configuredPassword) {
+    return res.status(403).json({
+      verified: false,
+      message: 'Admin portal login is locked. Configure Firebase Admins or ADMIN_EMAIL/ADMIN_PASSWORD on the server.',
+    });
+  }
+
+  if (email !== configuredEmail || password !== configuredPassword) {
+    return res.status(401).json({
+      verified: false,
+      message: 'Invalid administrator credentials.',
+    });
+  }
+
+  return res.json({
+    verified: true,
+    user: {
+      id: 'admin_verified',
+      name: 'Guru Padukam Administrator',
+      email: configuredEmail,
+      phone: '9949730175',
+      address: 'Madhuranagar, Khammam',
+      city: 'Khammam',
+      pincode: '507002',
+      role: 'admin',
+      createdAt: new Date().toISOString(),
+      notifications: { email: true, sms: true, push: true },
+    },
+  });
+});
 
 // IMPORTANT: Vertex AI Studio Rate Limiting
 // This rate limiting configuration protects your backend APIs from abuse.

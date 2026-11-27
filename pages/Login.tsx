@@ -10,11 +10,30 @@ import { CashfreeOrderResponse, createCashfreeTokenOrder } from '../services/pay
 import { CashfreeCheckoutModal } from '../components/CashfreeCheckoutModal';
 
 export const Login: React.FC = () => {
+<<<<<<< HEAD
   const { user, logout, login, register, isAuthLoading, language, setLanguage, addToast, t } = useAppContext();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<'login' | 'register'>('register');
   const [role, setRole] = useState<'user' | 'purohit'>('user');
+=======
+  const {
+    login,
+    adminLogin,
+    signInWithGoogle,
+    resetPassword,
+    register,
+    isAuthLoading,
+    language,
+    setLanguage,
+    addToast,
+    t,
+  } = useAppContext();
+  const navigate = useNavigate();
+
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [role, setRole] = useState<'user' | 'purohit' | 'admin'>('user');
+>>>>>>> c8c5fd8 (Added Firebase)
 
   // Login states
   const [loginEmail, setLoginEmail] = useState('');
@@ -80,16 +99,83 @@ export const Login: React.FC = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+<<<<<<< HEAD
     if (!loginEmail || !loginPassword) return;
 
     const ok = await login(loginEmail.trim(), undefined, loginPassword);
     if (ok) {
       navigate(role === 'purohit' ? '/purohit-dashboard' : '/');
+=======
+    if (!loginEmail.trim() || !loginPassword) {
+      addToast('Please enter both your email and password.', 'error');
+      return;
+    }
+
+    try {
+      if (role === 'admin') {
+        await adminLogin(loginEmail, loginPassword);
+        navigate('/admin');
+        return;
+      }
+
+      const signedInUser = await login(loginEmail, loginPassword);
+      navigate(
+        signedInUser.role === 'admin'
+          ? '/admin'
+          : signedInUser.role === 'purohit'
+          ? '/purohit-dashboard'
+          : '/'
+      );
+    } catch {
+      // Toast already displayed by AppContext; stay on login page
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const signedInUser = await signInWithGoogle();
+      if (signedInUser.role === 'admin') {
+        navigate('/admin');
+      } else if (signedInUser.role === 'purohit') {
+        navigate('/purohit-dashboard');
+      } else if (!signedInUser.phone || !signedInUser.address) {
+        navigate('/profile');
+      } else {
+        navigate('/');
+      }
+    } catch {
+      // Toast already displayed
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!loginEmail.trim()) {
+      addToast('Enter your registered email first to receive a reset link.', 'info');
+      return;
+    }
+    try {
+      await resetPassword(loginEmail);
+    } catch {
+      // Toast already displayed
+>>>>>>> c8c5fd8 (Added Firebase)
     }
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (role === 'admin') {
+      addToast('Administrator accounts cannot be self-registered.', 'error');
+      setRole('user');
+      return;
+    }
+    if (!regPassword || regPassword.length < 6) {
+      addToast('Please choose a password with at least 6 characters.', 'error');
+      return;
+    }
+    if (regPhone.replace(/\D/g, '').length < 10) {
+      addToast('Please enter a valid 10-digit mobile number.', 'error');
+      return;
+    }
 
     const cleanRegPhone = regPhone.replace(/\D/g, '');
     if (!/^[6-9]\d{9}$/.test(cleanRegPhone)) {
@@ -116,6 +202,7 @@ export const Login: React.FC = () => {
       return;
     }
 
+<<<<<<< HEAD
     const ok = await register({
       name: regName,
       email: regEmail,
@@ -146,6 +233,42 @@ export const Login: React.FC = () => {
 
     if (ok) {
       navigate(role === 'purohit' ? '/purohit-dashboard' : '/');
+=======
+    try {
+      const registeredUser = await register({
+        name: regName,
+        email: regEmail,
+        phone: regPhone,
+        address: regAddress,
+        city: regCity,
+        pincode: regPincode,
+        password: regPassword,
+        role,
+        preferredLanguage: regLanguage,
+        profileImage: regProfileImage,
+        ...(role === 'purohit' && kycRupeeReceipt
+          ? {
+              aadhaarLast4: cleanAadhaarDigits.slice(-4),
+              aadhaarDocPreview,
+              kycVerified: true,
+              kycRupeePaid: true,
+              kycCfOrderId: kycRupeeReceipt.cfOrderId,
+              kycCfPaymentId: kycRupeeReceipt.cfPaymentId,
+              kycVerifiedAt: new Date().toISOString(),
+              readyToShowVerification: readyToShowId,
+              vedicSampradaya: vedicSampradaya.trim() || 'Smarttha / Krishna Yajurveda',
+              experienceYears: Number(experienceYears) || 5,
+              acceptedRolePolicyAt: new Date().toISOString(),
+            }
+          : {
+              acceptedRolePolicyAt: new Date().toISOString(),
+            }),
+      });
+
+      navigate(registeredUser.role === 'purohit' ? '/purohit-dashboard' : '/');
+    } catch {
+      // Toast already displayed; stay on registration form
+>>>>>>> c8c5fd8 (Added Firebase)
     }
   };
 
@@ -210,7 +333,10 @@ export const Login: React.FC = () => {
         <div className="flex bg-maroon-dk/10 p-1 rounded-md mb-5 border border-maroon/15">
           <button
             type="button"
-            onClick={() => setMode('register')}
+            onClick={() => {
+              setMode('register');
+              if (role === 'admin') setRole('user');
+            }}
             className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded transition-all ${
               mode === 'register' ? 'bg-maroon text-gold-pale shadow' : 'text-maroon hover:text-maroon-dk'
             }`}
@@ -228,12 +354,22 @@ export const Login: React.FC = () => {
           </button>
         </div>
 
+<<<<<<< HEAD
         {/* Role Selector */}
         <div className="grid grid-cols-2 gap-2 mb-6 text-xs font-semibold">
           {([
             { id: 'user', title: isTe ? 'భక్తులు / కుటుంబం' : 'Devotee / Family', sub: 'Book @ ₹11' },
             { id: 'purohit', title: isTe ? 'పురోహితులు / పీఠం' : 'Purohit / Peeta', sub: 'Aadhaar + ₹1 KYC' },
           ] as const).map(item => (
+=======
+        {/* Role Selector (Admin is only available in Sign In, never public registration) */}
+        <div className={`grid ${mode === 'login' ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-6 text-xs font-semibold`}>
+          {([
+            { id: 'user' as const, title: isTe ? 'భక్తులు / కుటుంబం' : 'Devotee / Family', sub: 'Book @ ₹11' },
+            { id: 'purohit' as const, title: isTe ? 'పురోహితులు / పీఠం' : 'Purohit / Peeta', sub: 'Aadhaar + ₹1 KYC' },
+            ...(mode === 'login' ? [{ id: 'admin' as const, title: 'Platform Admin', sub: 'Verified Only' }] : []),
+          ]).map(item => (
+>>>>>>> c8c5fd8 (Added Firebase)
             <button
               key={item.id}
               type="button"
@@ -587,6 +723,17 @@ export const Login: React.FC = () => {
                 ? 'Complete Verified Purohit Registration'
                 : t('completeRegistration')}
             </button>
+
+            {role === 'user' && (
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={isAuthLoading}
+                className="w-full py-2.5 bg-white border border-gold/40 hover:bg-gold/10 text-maroon font-semibold text-xs uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2"
+              >
+                Continue with Google (Auto-fill Name, Email &amp; Photo)
+              </button>
+            )}
           </form>
         )}
 
@@ -627,15 +774,41 @@ export const Login: React.FC = () => {
               </div>
             </div>
 
+            <div className="flex items-center justify-between text-xs pt-1">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-maroon font-semibold hover:underline"
+              >
+                Forgot Password?
+              </button>
+              {role === 'admin' && (
+                <span className="text-[11px] text-amber-800 font-semibold">
+                  Protected by Server &amp; Firebase Admin Check
+                </span>
+              )}
+            </div>
+
             <button
               type="submit"
               disabled={isAuthLoading}
-              className="w-full py-3.5 bg-gradient-to-r from-maroon-dk via-maroon to-maroon-dk text-gold-pale font-bold text-xs uppercase tracking-wider rounded shadow hover:brightness-105 transition-all flex items-center justify-center gap-2 mt-4"
+              className="w-full py-3.5 bg-gradient-to-r from-maroon-dk via-maroon to-maroon-dk text-gold-pale font-bold text-xs uppercase tracking-wider rounded shadow hover:brightness-105 transition-all flex items-center justify-center gap-2 mt-2"
             >
               {isAuthLoading
                 ? <Loader2 className="animate-spin" size={16} />
                 : `Sign In as ${role === 'purohit' ? 'Purohit Partner' : 'Devotee'}`}
             </button>
+
+            {role !== 'admin' && (
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={isAuthLoading}
+                className="w-full py-2.5 bg-white border border-gold/40 hover:bg-gold/10 text-maroon font-semibold text-xs uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2"
+              >
+                Continue with Google
+              </button>
+            )}
           </form>
         )}
       </div>

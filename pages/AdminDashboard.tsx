@@ -2,12 +2,36 @@ import React, { useState, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAppContext } from '../contexts/AppContext';
 import { Product, Order } from '../types';
-import { Package, ShoppingBag, Edit2, Check, Plus, BarChart3, TrendingUp, DollarSign, Trash2, AlertTriangle, LayoutDashboard, ShieldCheck, Calendar, MapPin, MessageCircle, ExternalLink, Utensils, Ticket } from 'lucide-react';
+import { Package, ShoppingBag, Edit2, Check, Plus, BarChart3, TrendingUp, DollarSign, Trash2, AlertTriangle, LayoutDashboard, ShieldCheck, Calendar, MapPin, MessageCircle, ExternalLink, Utensils, Ticket, Users, BellRing, Database } from 'lucide-react';
 import { buildPurohitWhatsAppUrl, getBookingMapDirectionsUrl, getReminderWindowInfo, buildAparaOrganizerWhatsAppUrl, getAparaPriorDispatchInfo } from '../utils/whatsapp';
+import { isFirebaseConfigured } from '../services/firebase';
 
 export const AdminDashboard: React.FC = () => {
-  const { isAdmin, products, updateProduct, addProduct, deleteProduct, orders, updateOrderStatus, bookings, updateBookingStatus, markBookingWhatsappSent, aparaBookings, updateAparaBookingStatus, markAparaWhatsappSent, tickets, updateTicketStatus } = useAppContext();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'bookings' | 'apara' | 'tickets' | 'balance'>('balance');
+  const {
+    isAdmin,
+    products,
+    updateProduct,
+    addProduct,
+    deleteProduct,
+    orders,
+    updateOrderStatus,
+    purohits,
+    bookings,
+    updateBookingStatus,
+    markBookingWhatsappSent,
+    aparaBookings,
+    updateAparaBookingStatus,
+    markAparaWhatsappSent,
+    tickets,
+    updateTicketStatus,
+    seedCatalogToFirestore,
+    triggerNotification,
+    addToast,
+  } = useAppContext();
+  const [activeTab, setActiveTab] = useState<'balance' | 'inventory' | 'orders' | 'bookings' | 'apara' | 'purohits' | 'tickets'>('balance');
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertBody, setAlertBody] = useState('');
+  const [syncingFb, setSyncingFb] = useState(false);
   
   // Inventory State
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
@@ -84,12 +108,83 @@ export const AdminDashboard: React.FC = () => {
     setNewProduct({ category: 'powder', stock: 0, price: 0, origPrice: 0 });
   };
 
+<<<<<<< HEAD
+=======
+  // --- Balance Sheet & Platform Calculations ---
+  const financialStats = useMemo(() => {
+    const validOrders = orders.filter(o => o.status !== 'Cancelled');
+    const ordersRevenue = validOrders.reduce((sum, o) => sum + o.total, 0);
+    const validBookings = bookings.filter(b => b.status !== 'Cancelled' && b.status !== 'Rejected by Purohit');
+    const tokenRevenue = validBookings.reduce((sum, b) => sum + (b.total || 11), 0);
+    const totalRevenue = ordersRevenue + tokenRevenue;
+    const totalOrders = validOrders.length;
+    const avgOrderValue = totalOrders > 0 ? Math.round(ordersRevenue / totalOrders) : 0;
+    const openTicketsCount = tickets.filter(t => t.status !== 'Resolved').length;
+    const pendingBookingsCount = bookings.filter(b => b.status === 'Awaiting Purohit Approval' || b.status === 'Cancellation Requested').length;
+
+    // Revenue by category
+    const revByCategory: Record<Product['category'], number> = {
+      powder: 0,
+      thread: 0,
+      combo: 0,
+      items: 0,
+      'return-gifts': 0,
+      flowers: 0,
+      prasad: 0,
+      essentials: 0,
+    };
+    validOrders.forEach(o => {
+      o.items.forEach(item => {
+        if (revByCategory[item.category] !== undefined) {
+          revByCategory[item.category] += (item.price * item.qty);
+        }
+      });
+    });
+
+    return {
+      totalRevenue,
+      ordersRevenue,
+      tokenRevenue,
+      totalOrders,
+      avgOrderValue,
+      totalBookings: bookings.length,
+      totalApara: aparaBookings.length,
+      openTicketsCount,
+      pendingBookingsCount,
+      revByCategory,
+    };
+  }, [orders, bookings, aparaBookings, tickets]);
+
+  const handleSeedFirebase = async () => {
+    setSyncingFb(true);
+    try {
+      await seedCatalogToFirestore();
+    } finally {
+      setSyncingFb(false);
+    }
+  };
+
+  const handleBroadcastPush = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!alertTitle.trim() || !alertBody.trim()) return;
+    triggerNotification({
+      title: alertTitle.trim(),
+      message: alertBody.trim(),
+      type: 'info',
+    });
+    addToast('Push alert & reminder dispatched!', 'success');
+    setAlertTitle('');
+    setAlertBody('');
+  };
+
+>>>>>>> c8c5fd8 (Added Firebase)
   const tabs = [
     { id: 'balance', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'bookings', label: 'Purohit Bookings', icon: Calendar },
+    { id: 'apara', label: 'Apara Seva', icon: Utensils },
+    { id: 'purohits', label: 'Purohits & KYC', icon: Users },
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'orders', label: 'Orders', icon: ShoppingBag },
-    { id: 'bookings', label: 'Bookings', icon: Calendar },
-    { id: 'apara', label: 'Apara Seva', icon: Utensils },
     { id: 'tickets', label: 'Tickets', icon: Ticket },
   ] as const;
 
@@ -152,28 +247,96 @@ export const AdminDashboard: React.FC = () => {
           {activeTab === 'balance' && (
             <div className="space-y-8 animate-slide-up">
               {/* KPI Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 border border-gold/10 shadow-sm flex items-center gap-5 rounded-sm">
-                  <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center border border-green-100"><DollarSign size={24} /></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="bg-white p-5 border border-gold/10 shadow-sm flex items-center gap-4 rounded-sm">
+                  <div className="w-11 h-11 bg-green-50 text-green-600 rounded-full flex items-center justify-center border border-green-100"><DollarSign size={22} /></div>
                   <div>
                     <p className="text-[0.65rem] text-text-md uppercase tracking-widest font-bold">Total Revenue</p>
-                    <p className="font-cinzel text-2xl font-bold text-maroon mt-1">₹{financialStats.totalRevenue.toLocaleString()}</p>
+                    <p className="font-cinzel text-xl font-bold text-maroon mt-0.5">₹{financialStats.totalRevenue.toLocaleString()}</p>
+                    <p className="text-[10px] text-text-lt">Orders ₹{financialStats.ordersRevenue} + Tokens ₹{financialStats.tokenRevenue}</p>
                   </div>
                 </div>
-                <div className="bg-white p-6 border border-gold/10 shadow-sm flex items-center gap-5 rounded-sm">
-                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center border border-blue-100"><ShoppingBag size={24} /></div>
+                <div className="bg-white p-5 border border-gold/10 shadow-sm flex items-center gap-4 rounded-sm">
+                  <div className="w-11 h-11 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center border border-blue-100"><Calendar size={22} /></div>
                   <div>
-                    <p className="text-[0.65rem] text-text-md uppercase tracking-widest font-bold">Total Orders</p>
-                    <p className="font-cinzel text-2xl font-bold text-maroon mt-1">{financialStats.totalOrders}</p>
+                    <p className="text-[0.65rem] text-text-md uppercase tracking-widest font-bold">Ritual Bookings</p>
+                    <p className="font-cinzel text-xl font-bold text-maroon mt-0.5">{financialStats.totalBookings} + {financialStats.totalApara} Apara</p>
+                    <p className="text-[10px] text-amber-700 font-semibold">{financialStats.pendingBookingsCount} awaiting action</p>
                   </div>
                 </div>
-                <div className="bg-white p-6 border border-gold/10 shadow-sm flex items-center gap-5 rounded-sm">
-                  <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center border border-purple-100"><TrendingUp size={24} /></div>
+                <div className="bg-white p-5 border border-gold/10 shadow-sm flex items-center gap-4 rounded-sm">
+                  <div className="w-11 h-11 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center border border-purple-100"><TrendingUp size={22} /></div>
                   <div>
-                    <p className="text-[0.65rem] text-text-md uppercase tracking-widest font-bold">Avg Order Value</p>
-                    <p className="font-cinzel text-2xl font-bold text-maroon mt-1">₹{financialStats.avgOrderValue.toLocaleString()}</p>
+                    <p className="text-[0.65rem] text-text-md uppercase tracking-widest font-bold">Marketplace Orders</p>
+                    <p className="font-cinzel text-xl font-bold text-maroon mt-0.5">{financialStats.totalOrders}</p>
+                    <p className="text-[10px] text-text-lt">Avg ₹{financialStats.avgOrderValue.toLocaleString()}</p>
                   </div>
                 </div>
+                <div className="bg-white p-5 border border-gold/10 shadow-sm flex items-center gap-4 rounded-sm">
+                  <div className="w-11 h-11 bg-amber-50 text-amber-700 rounded-full flex items-center justify-center border border-amber-200"><Ticket size={22} /></div>
+                  <div>
+                    <p className="text-[0.65rem] text-text-md uppercase tracking-widest font-bold">Verified Purohits &amp; Tickets</p>
+                    <p className="font-cinzel text-xl font-bold text-maroon mt-0.5">{purohits.length} Purohits</p>
+                    <p className="text-[10px] text-red-700 font-semibold">{financialStats.openTicketsCount} open tickets</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Firebase Cloud Sync & Push Notification Broadcast */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-6 border border-gold/20 rounded-sm shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-cinzel text-sm font-bold text-maroon uppercase tracking-widest flex items-center gap-2">
+                      <Database size={16} /> Firebase Storage &amp; Firestore
+                    </h3>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                      isFirebaseConfigured ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {isFirebaseConfigured ? 'Connected' : 'Env Vars Needed'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-md">
+                    Products ({products.length}), Purohits ({purohits.length}), Bookings ({bookings.length}), and KYC Aadhaar documents are synced via Firestore &amp; Firebase Storage.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSeedFirebase}
+                    disabled={syncingFb}
+                    className="px-4 py-2 bg-maroon text-gold-pale text-xs font-bold uppercase tracking-wider rounded-sm hover:bg-maroon-md transition disabled:opacity-60"
+                  >
+                    {syncingFb ? 'Syncing...' : 'Sync Starter Catalog to Firebase'}
+                  </button>
+                </div>
+
+                <form onSubmit={handleBroadcastPush} className="bg-white p-6 border border-gold/20 rounded-sm shadow-sm space-y-3">
+                  <h3 className="font-cinzel text-sm font-bold text-maroon uppercase tracking-widest flex items-center gap-2">
+                    <BellRing size={16} /> Send Push Reminder / Alert
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={alertTitle}
+                      onChange={e => setAlertTitle(e.target.value)}
+                      placeholder="Alert title (e.g., Muhurtham Reminder)"
+                      className="p-2 border border-gold/30 text-xs rounded-sm bg-cream/30"
+                      required
+                    />
+                    <input
+                      type="text"
+                      value={alertBody}
+                      onChange={e => setAlertBody(e.target.value)}
+                      placeholder="Message (e.g., Keep pooja essentials ready)"
+                      className="p-2 border border-gold/30 text-xs rounded-sm bg-cream/30"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-[#25D366] hover:bg-[#1fb858] text-white text-xs font-bold uppercase tracking-wider rounded-sm transition"
+                  >
+                    Dispatch Push Notification
+                  </button>
+                </form>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -594,6 +757,53 @@ export const AdminDashboard: React.FC = () => {
                         </tr>
                       );
                     })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Purohits & KYC Tab */}
+          {activeTab === 'purohits' && (
+            <div className="bg-white shadow-sm border border-gold/10 overflow-hidden rounded-sm animate-slide-up">
+              <div className="p-4 bg-cream/60 border-b border-gold/20 text-xs text-text-md">
+                <strong>Verified Purohits Directory (Firebase):</strong> Aadhaar + ₹1 Witness KYC verified Purohits synced with Firestore.
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-cream/50 text-maroon font-cinzel text-xs font-bold tracking-widest uppercase border-b border-gold/20">
+                      <th className="p-4">Purohit</th>
+                      <th className="p-4">Location &amp; Languages</th>
+                      <th className="p-4">KYC Status</th>
+                      <th className="p-4">Availability</th>
+                      <th className="p-4">Poojas Done</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {purohits.length === 0 ? (
+                      <tr><td colSpan={5} className="p-10 text-center text-text-md font-cinzel text-sm">No purohits loaded. Click "Sync Starter Catalog to Firebase" on the Dashboard tab.</td></tr>
+                    ) : purohits.map(p => (
+                      <tr key={p.id} className="border-b border-gray-100 hover:bg-cream/30">
+                        <td className="p-4">
+                          <div className="font-cinzel font-bold text-maroon text-sm">{p.name}</div>
+                          <div className="text-[11px] text-text-md">{p.experience} yrs exp · ★ {p.rating}</div>
+                        </td>
+                        <td className="p-4 text-xs text-text-md">
+                          <div>{p.location}</div>
+                          <div className="text-[11px] text-text-lt">{p.languages.join(', ')}</div>
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                            p.verified ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}>
+                            {p.verified ? '✓ Aadhaar + ₹1 KYC Verified' : 'Pending KYC'}
+                          </span>
+                        </td>
+                        <td className="p-4 text-xs font-semibold uppercase text-maroon">{p.availability}</td>
+                        <td className="p-4 text-xs font-mono font-bold text-text-dk">{p.completedPoojas}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
