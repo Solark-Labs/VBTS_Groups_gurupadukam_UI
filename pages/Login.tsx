@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Loader2, User, Phone, MapPin, Mail, Lock, Globe, Camera, X,
-  ShieldCheck, Upload, CheckCircle2, BadgeCheck, FileCheck
+  ShieldCheck, Upload, CheckCircle2, BadgeCheck, FileCheck, Navigation
 } from 'lucide-react';
 import { useAppContext } from '../contexts/AppContext';
 import { PAN_INDIA_LANGUAGES, LanguageCode } from '../i18n/languages';
@@ -38,8 +38,10 @@ export const Login: React.FC = () => {
   const [regEmail, setRegEmail] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regAddress, setRegAddress] = useState('');
-  const [regCity, setRegCity] = useState('Khammam');
-  const [regPincode, setRegPincode] = useState('507002');
+  const [regCity, setRegCity] = useState('');
+  const [regPincode, setRegPincode] = useState('');
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationAttempted, setLocationAttempted] = useState(false);
   const [regPassword, setRegPassword] = useState('');
   const [regLanguage, setRegLanguage] = useState<LanguageCode>(language);
   const [regProfileImage, setRegProfileImage] = useState<string | undefined>(undefined);
@@ -57,6 +59,58 @@ export const Login: React.FC = () => {
   const [startingKycPay, setStartingKycPay] = useState(false);
 
   const isTe = language === 'te';
+
+  const detectLocation = useCallback((silent = false) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      if (!silent) addToast('Location detection is not supported in this browser.', 'error');
+      return;
+    }
+    setIsDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+          const addr = data?.address || {};
+          const detectedCity =
+            addr.city || addr.town || addr.village || addr.county || addr.state_district || '';
+          const detectedPin = String(addr.postcode || '').replace(/\D/g, '').slice(0, 6);
+          if (detectedCity) setRegCity(detectedCity);
+          if (detectedPin) setRegPincode(detectedPin);
+          if (!regAddress && data?.display_name) {
+            setRegAddress(String(data.display_name).split(',').slice(0, 3).join(', ').trim());
+          }
+          if (!silent) {
+            addToast(
+              detectedCity || detectedPin
+                ? `Detected: ${detectedCity || 'Location'}${detectedPin ? ` (${detectedPin})` : ''}`
+                : 'Location detected! Please verify your city and PIN code.',
+              'success'
+            );
+          }
+        } catch {
+          if (!silent) addToast('Could not fetch address details. Please enter City & PIN manually.', 'info');
+        } finally {
+          setIsDetectingLocation(false);
+        }
+      },
+      () => {
+        setIsDetectingLocation(false);
+        if (!silent) addToast('Location permission denied. Please enter City & PIN code manually.', 'info');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, [addToast, regAddress]);
+
+  useEffect(() => {
+    if (mode === 'register' && !locationAttempted && !regCity && !regPincode) {
+      setLocationAttempted(true);
+      detectLocation(true);
+    }
+  }, [mode, locationAttempted, regCity, regPincode, detectLocation]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -463,6 +517,21 @@ export const Login: React.FC = () => {
               </div>
             </div>
 
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-maroon">
+                City &amp; PIN Code
+              </span>
+              <button
+                type="button"
+                disabled={isDetectingLocation}
+                onClick={() => detectLocation(false)}
+                className="inline-flex items-center gap-1.5 text-[11px] font-bold text-maroon bg-gold/20 hover:bg-gold/30 border border-gold/40 px-2.5 py-1 rounded transition-colors disabled:opacity-60"
+              >
+                {isDetectingLocation ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />}
+                {isDetectingLocation ? 'Detecting…' : 'Detect My Location & PIN'}
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
@@ -473,6 +542,7 @@ export const Login: React.FC = () => {
                   required
                   value={regCity}
                   onChange={e => setRegCity(e.target.value)}
+                  placeholder="Enter city / town"
                   className="w-full px-3 py-2 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                 />
               </div>
@@ -482,10 +552,13 @@ export const Login: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength={6}
                   required
                   pattern="[0-9]{6}"
                   value={regPincode}
-                  onChange={e => setRegPincode(e.target.value)}
+                  onChange={e => setRegPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="6-digit PIN"
                   className="w-full px-3 py-2 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                 />
               </div>
