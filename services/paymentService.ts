@@ -3,6 +3,8 @@
  * Strictly requires payment completion (`PAID`) before verification passes.
  */
 
+const API_BASE_URL = String((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+
 export interface CashfreeOrderResponse {
   success: boolean;
   mode: 'cashfree-live' | 'cashfree-sandbox-local';
@@ -33,7 +35,7 @@ export async function createCashfreeTokenOrder(params: {
   purpose?: 'BOOKING_TOKEN' | 'PUROHIT_KYC';
 }): Promise<CashfreeOrderResponse> {
   const orderAmount = params.amount ?? 11;
-  const res = await fetch('/api/payments/cashfree/create-order', {
+  const res = await fetch(`${API_BASE_URL}/api/payments/cashfree/create-order`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -64,7 +66,7 @@ export async function verifyCashfreeTokenPayment(params: {
 }): Promise<CashfreeVerifyResponse> {
   const expectedAmount = params.expectedAmount ?? 11;
   try {
-    const res = await fetch('/api/payments/cashfree/verify', {
+    const res = await fetch(`${API_BASE_URL}/api/payments/cashfree/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -109,7 +111,7 @@ export async function syncPurohitKycToBackend(params: {
   vedicSampradaya?: string;
 }): Promise<void> {
   try {
-    await fetch('/api/purohit/kyc', {
+    await fetch(`${API_BASE_URL}/api/purohit/kyc`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -121,7 +123,7 @@ export async function syncPurohitKycToBackend(params: {
 
 export async function syncBookingCreateToBackend(booking: unknown): Promise<void> {
   try {
-    await fetch('/api/bookings/create', {
+    await fetch(`${API_BASE_URL}/api/bookings/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(booking),
@@ -139,7 +141,7 @@ export async function syncBookingNoteToBackend(params: {
   acknowledgeAdvance?: boolean;
 }): Promise<void> {
   try {
-    await fetch('/api/bookings/update-note', {
+    await fetch(`${API_BASE_URL}/api/bookings/update-note`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -155,7 +157,7 @@ export async function syncDevoteeCancelToBackend(params: {
   actionType?: 'cancel' | 'swap';
 }): Promise<void> {
   try {
-    await fetch('/api/bookings/devotee-cancel', {
+    await fetch(`${API_BASE_URL}/api/bookings/devotee-cancel`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -175,7 +177,7 @@ export async function syncPurohitActionToBackend(params: {
   nakshatram?: string;
 }): Promise<void> {
   try {
-    await fetch('/api/bookings/purohit-action', {
+    await fetch(`${API_BASE_URL}/api/bookings/purohit-action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
