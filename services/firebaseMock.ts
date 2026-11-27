@@ -181,24 +181,8 @@ async function buildOrMergeGoogleUser(fbUser: FirebaseAuthUser): Promise<User> {
   return newUser;
 }
 
-const hashPassword = async (password: string): Promise<string> => {
-  if (typeof crypto !== 'undefined' && crypto.subtle) {
-    const data = new TextEncoder().encode(`gp_salt_v1:${password}`);
-    const buf = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-  return btoa(`gp_salt_v1:${password}`);
-};
-
 export const firebaseMock = {
-<<<<<<< HEAD
-  auth: {
-    async signInWithGoogle(email: string): Promise<User> {
-      await delay(500);
-      const role: User['role'] = email.toLowerCase().includes('purohit') ? 'purohit' : 'user';
-=======
   isFirebaseConfigured,
->>>>>>> c8c5fd8 (Added Firebase)
 
   auth: {
     async signInWithGoogle(): Promise<User> {
@@ -243,23 +227,8 @@ export const firebaseMock = {
         throw new Error('Password must be at least 6 characters long.');
       }
 
-<<<<<<< HEAD
-      const user: User = {
-        id: `usr_${Date.now()}`,
-        name: email.split('@')[0],
-        email,
-        phone: '',
-        address: '',
-        city: 'Khammam',
-        pincode: '507002',
-        role,
-        createdAt: new Date().toISOString(),
-        notifications: { email: true, sms: false }
-      };
-=======
       // Public registration can NEVER create an Admin account
       const safeRole: 'user' | 'purohit' = data.role === 'purohit' ? 'purohit' : 'user';
->>>>>>> c8c5fd8 (Added Firebase)
 
       if (isFirebaseConfigured && auth && db) {
         const cred = await createUserWithEmailAndPassword(auth, normalizedEmail, data.password);
@@ -331,18 +300,9 @@ export const firebaseMock = {
       // Local fallback (when Firebase keys are not yet configured)
       await delay(300);
       const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
-<<<<<<< HEAD
-      const normalizedEmail = data.email.trim().toLowerCase();
-      if (savedUsers[normalizedEmail]) {
-        throw new Error('An account with this email already exists. Please sign in.');
-      }
-      const role: User['role'] =
-        data.role === 'purohit' ? 'purohit' : 'user';
-=======
       if (savedUsers[normalizedEmail]) {
         throw new Error('An account with this email already exists. Please sign in instead.');
       }
->>>>>>> c8c5fd8 (Added Firebase)
 
       const passwordHash = await hashPassword(data.password);
       const uid = `usr_${Date.now()}`;
@@ -350,11 +310,7 @@ export const firebaseMock = {
         id: uid,
         name: data.name.trim(),
         email: normalizedEmail,
-<<<<<<< HEAD
-        phone: data.phone.trim(),
-=======
         phone: cleanPhone,
->>>>>>> c8c5fd8 (Added Firebase)
         address: data.address.trim(),
         city: data.city.trim(),
         pincode: data.pincode.trim(),
@@ -374,51 +330,24 @@ export const firebaseMock = {
         notifications: { email: true, sms: true, push: true },
       };
 
-<<<<<<< HEAD
-      if (data.password) {
-        const passwords = JSON.parse(localStorage.getItem('gp_fb_passwords') || '{}');
-        passwords[normalizedEmail] = await hashPassword(data.password);
-        localStorage.setItem('gp_fb_passwords', JSON.stringify(passwords));
-      }
-
-      savedUsers[user.email] = user;
-      localStorage.setItem('gp_fb_users', JSON.stringify(savedUsers));
-      return user;
-    },
-    async login(email: string, _phone?: string, password?: string): Promise<User> {
-      await delay(400);
-      const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
-      const normalizedEmail = email.trim().toLowerCase();
-
-      const existing = savedUsers[normalizedEmail];
-      if (!existing) {
-        throw new Error('No account found for this email. Please register first.');
-      }
-
-      const passwords = JSON.parse(localStorage.getItem('gp_fb_passwords') || '{}');
-      const storedHash = passwords[normalizedEmail];
-      if (!password || !storedHash || (await hashPassword(password)) !== storedHash) {
-        throw new Error('Invalid email or password.');
-      }
-
-      return existing;
-    },
-    async changePassword(email: string, currentPassword: string, newPassword: string): Promise<void> {
-      await delay(300);
-      const normalizedEmail = email.trim().toLowerCase();
-      const passwords = JSON.parse(localStorage.getItem('gp_fb_passwords') || '{}');
-      const storedHash = passwords[normalizedEmail];
-      if (storedHash && (await hashPassword(currentPassword)) !== storedHash) {
-        throw new Error('Current password is incorrect.');
-      }
-      passwords[normalizedEmail] = await hashPassword(newPassword);
-      localStorage.setItem('gp_fb_passwords', JSON.stringify(passwords));
-    },
-    async updateUser(user: User): Promise<void> {
-=======
       savedUsers[normalizedEmail] = { ...user, _pwHash: passwordHash };
       localStorage.setItem('gp_fb_users', JSON.stringify(savedUsers));
       return user;
+    },
+
+    async changePassword(email: string, currentPassword: string, newPassword: string): Promise<void> {
+      await delay(300);
+      const normalizedEmail = email.trim().toLowerCase();
+      const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
+      const record = savedUsers[normalizedEmail];
+      if (record?._pwHash && (await hashPassword(currentPassword)) !== record._pwHash) {
+        throw new Error('Current password is incorrect.');
+      }
+      if (record) {
+        record._pwHash = await hashPassword(newPassword);
+        savedUsers[normalizedEmail] = record;
+        localStorage.setItem('gp_fb_users', JSON.stringify(savedUsers));
+      }
     },
 
     async login(email: string, password?: string): Promise<User> {
@@ -458,7 +387,6 @@ export const firebaseMock = {
       }
 
       // Local fallback with real password verification (NO auto-create, NO email.includes('admin'))
->>>>>>> c8c5fd8 (Added Firebase)
       await delay(300);
       const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
       const record = savedUsers[normalizedEmail];

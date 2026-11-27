@@ -24,16 +24,11 @@ interface AppContextType {
 
   // Auth
   user: User | null;
-<<<<<<< HEAD
-  login: (email: string, phone?: string, password?: string) => Promise<boolean>;
-  register: (data: RegistrationData) => Promise<boolean>;
-=======
   login: (email: string, password: string) => Promise<User>;
   adminLogin: (email: string, password: string) => Promise<User>;
   signInWithGoogle: () => Promise<User>;
   resetPassword: (email: string) => Promise<void>;
   register: (data: RegistrationData) => Promise<User>;
->>>>>>> c8c5fd8 (Added Firebase)
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
@@ -164,32 +159,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return saved !== 'false';
   });
 
-<<<<<<< HEAD
-  // Load initial data & verify JWT session with backend
-  useEffect(() => {
-    const token = localStorage.getItem('gp_auth_token');
-    if (token) {
-      fetch(`${API_BASE_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then(res => (res.ok ? res.json() : Promise.reject(new Error('Invalid session'))))
-        .then(data => {
-          if (data?.user?.role) {
-            setUser(prev => {
-              if (!prev) return prev;
-              const verified = { ...prev, role: data.user.role, email: data.user.email, id: data.user.id };
-              localStorage.setItem('gp_user', JSON.stringify(verified));
-              return verified;
-            });
-          }
-        })
-        .catch(() => {
-          // If backend rejects token (401), clear tampered/expired session
-        });
-    }
-=======
   const refreshCloudData = useCallback(() => {
->>>>>>> c8c5fd8 (Added Firebase)
     firebaseMock.db.getProducts().then(setProducts);
     firebaseMock.db.getOrders().then(setOrders);
     firebaseMock.db.getPurohits().then(setPurohits);
@@ -245,29 +215,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const t = useCallback((key: keyof TranslationKeys) => getTranslation(language, key), [language]);
 
-<<<<<<< HEAD
-  // --- Auth (Server-backed via /api/auth/*) ---
-  const login = async (email: string, _phone?: string, password?: string): Promise<boolean> => {
-    setIsAuthLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password: password || '' }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success || !data.user || !data.token) {
-        throw new Error(data.message || 'Invalid email or password.');
-      }
-      const existingUser: User = data.user;
-      localStorage.setItem('gp_auth_token', data.token);
-=======
   // --- Auth ---
   const login = async (email: string, password: string): Promise<User> => {
     setIsAuthLoading(true);
     try {
       const existingUser = await firebaseMock.auth.login(email, password);
->>>>>>> c8c5fd8 (Added Firebase)
       setUser(existingUser);
       localStorage.setItem('gp_user', JSON.stringify(existingUser));
       if (existingUser.preferredLanguage === 'te' || existingUser.preferredLanguage === 'en') {
@@ -275,25 +227,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         localStorage.setItem('gp_lang', existingUser.preferredLanguage);
       }
       addToast(`Welcome back, ${existingUser.name}!`, 'success');
-<<<<<<< HEAD
-      return true;
-    } catch (error) {
-      addToast(error instanceof Error ? error.message : 'Login failed. Please check your credentials.', 'error');
-      return false;
-=======
       return existingUser;
     } catch (error: any) {
       addToast(error?.message || 'Login failed. Please check your credentials.', 'error');
       throw error;
->>>>>>> c8c5fd8 (Added Firebase)
     } finally {
       setIsAuthLoading(false);
     }
   };
 
-<<<<<<< HEAD
-  const register = async (data: RegistrationData): Promise<boolean> => {
-=======
   const adminLogin = async (email: string, password: string): Promise<User> => {
     setIsAuthLoading(true);
     try {
@@ -346,20 +288,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const register = async (data: RegistrationData): Promise<User> => {
->>>>>>> c8c5fd8 (Added Firebase)
     setIsAuthLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || !body.success || !body.user || !body.token) {
-        throw new Error(body.message || 'Registration failed. Please try again.');
-      }
-      const newUser: User = { ...body.user, preferredLanguage: data.preferredLanguage || 'en', profileImage: data.profileImage };
-      localStorage.setItem('gp_auth_token', body.token);
+      const newUser = await firebaseMock.auth.register(data);
       setUser(newUser);
       localStorage.setItem('gp_user', JSON.stringify(newUser));
       if (newUser.preferredLanguage === 'te' || newUser.preferredLanguage === 'en') {
@@ -371,7 +302,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           email: newUser.email,
           name: newUser.name,
           phone: newUser.phone,
-          aadhaarLast4: '',
+          aadhaarLast4: newUser.aadhaarLast4 || '',
           kycCfOrderId: newUser.kycCfOrderId || '',
           kycCfPaymentId: newUser.kycCfPaymentId,
           readyToShowVerification: Boolean(newUser.readyToShowVerification),
@@ -380,17 +311,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         firebaseMock.db.getPurohits().then(setPurohits);
       }
       addToast(`Namaste ${newUser.name}, your account is registered!`, 'success');
-<<<<<<< HEAD
-      return true;
-    } catch (error) {
-      addToast(error instanceof Error ? error.message : 'Registration failed. Please try again.', 'error');
-      return false;
-=======
       return newUser;
     } catch (error: any) {
       addToast(error?.message || 'Registration failed. Please try again.', 'error');
       throw error;
->>>>>>> c8c5fd8 (Added Firebase)
     } finally {
       setIsAuthLoading(false);
     }
@@ -407,7 +331,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addToast('Logged out successfully.', 'info');
   };
 
-<<<<<<< HEAD
   const changePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
     if (!user) return false;
     try {
@@ -418,7 +341,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addToast(error instanceof Error ? error.message : 'Failed to update password.', 'error');
       return false;
     }
-=======
+  };
+
   const seedCatalogToFirestore = async () => {
     const counts = await firebaseMock.db.seedCatalogToFirestore();
     const [prods, purs, peetas] = await Promise.all([
@@ -433,7 +357,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       `Synced to Firebase: ${counts.products} products, ${counts.purohits} purohits, ${counts.aparaPeetas} Apara Peetas.`,
       'success'
     );
->>>>>>> c8c5fd8 (Added Firebase)
   };
 
   const updateProfile = async (data: Partial<User>) => {
@@ -1345,11 +1268,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       language, setLanguage, t,
-<<<<<<< HEAD
-      user, login, register, logout, updateProfile, changePassword, isAdmin, isAuthLoading,
-=======
-      user, login, adminLogin, signInWithGoogle, resetPassword, register, logout, updateProfile, isAdmin, isAuthLoading, seedCatalogToFirestore,
->>>>>>> c8c5fd8 (Added Firebase)
+      user, login, adminLogin, signInWithGoogle, resetPassword, register, logout, updateProfile, changePassword, isAdmin, isAuthLoading, seedCatalogToFirestore,
       cart, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, isCartOpen, setCartOpen,
       products, updateProduct, addProduct, deleteProduct, orders, placeOrder, updateOrderStatus,
       walletBalance, walletTransactions, debitWalletForBooking,

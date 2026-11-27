@@ -10,14 +10,9 @@ import { CashfreeOrderResponse, createCashfreeTokenOrder } from '../services/pay
 import { CashfreeCheckoutModal } from '../components/CashfreeCheckoutModal';
 
 export const Login: React.FC = () => {
-<<<<<<< HEAD
-  const { user, logout, login, register, isAuthLoading, language, setLanguage, addToast, t } = useAppContext();
-  const navigate = useNavigate();
-
-  const [mode, setMode] = useState<'login' | 'register'>('register');
-  const [role, setRole] = useState<'user' | 'purohit'>('user');
-=======
   const {
+    user,
+    logout,
     login,
     adminLogin,
     signInWithGoogle,
@@ -33,7 +28,6 @@ export const Login: React.FC = () => {
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [role, setRole] = useState<'user' | 'purohit' | 'admin'>('user');
->>>>>>> c8c5fd8 (Added Firebase)
 
   // Login states
   const [loginEmail, setLoginEmail] = useState('');
@@ -99,13 +93,6 @@ export const Login: React.FC = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-<<<<<<< HEAD
-    if (!loginEmail || !loginPassword) return;
-
-    const ok = await login(loginEmail.trim(), undefined, loginPassword);
-    if (ok) {
-      navigate(role === 'purohit' ? '/purohit-dashboard' : '/');
-=======
     if (!loginEmail.trim() || !loginPassword) {
       addToast('Please enter both your email and password.', 'error');
       return;
@@ -157,7 +144,6 @@ export const Login: React.FC = () => {
       await resetPassword(loginEmail);
     } catch {
       // Toast already displayed
->>>>>>> c8c5fd8 (Added Firebase)
     }
   };
 
@@ -202,38 +188,6 @@ export const Login: React.FC = () => {
       return;
     }
 
-<<<<<<< HEAD
-    const ok = await register({
-      name: regName,
-      email: regEmail,
-      phone: regPhone,
-      address: regAddress,
-      city: regCity,
-      pincode: regPincode,
-      password: regPassword,
-      role,
-      preferredLanguage: regLanguage,
-      profileImage: regProfileImage,
-      ...(role === 'purohit' && kycRupeeReceipt
-        ? {
-            kycVerified: true,
-            kycRupeePaid: true,
-            kycCfOrderId: kycRupeeReceipt.cfOrderId,
-            kycCfPaymentId: kycRupeeReceipt.cfPaymentId,
-            kycVerifiedAt: new Date().toISOString(),
-            readyToShowVerification: readyToShowId,
-            vedicSampradaya: vedicSampradaya.trim() || 'Smarttha / Krishna Yajurveda',
-            experienceYears: Number(experienceYears) || 5,
-            acceptedRolePolicyAt: new Date().toISOString(),
-          }
-        : {
-            acceptedRolePolicyAt: new Date().toISOString(),
-          }),
-    });
-
-    if (ok) {
-      navigate(role === 'purohit' ? '/purohit-dashboard' : '/');
-=======
     try {
       const registeredUser = await register({
         name: regName,
@@ -248,8 +202,6 @@ export const Login: React.FC = () => {
         profileImage: regProfileImage,
         ...(role === 'purohit' && kycRupeeReceipt
           ? {
-              aadhaarLast4: cleanAadhaarDigits.slice(-4),
-              aadhaarDocPreview,
               kycVerified: true,
               kycRupeePaid: true,
               kycCfOrderId: kycRupeeReceipt.cfOrderId,
@@ -268,7 +220,6 @@ export const Login: React.FC = () => {
       navigate(registeredUser.role === 'purohit' ? '/purohit-dashboard' : '/');
     } catch {
       // Toast already displayed; stay on registration form
->>>>>>> c8c5fd8 (Added Firebase)
     }
   };
 
@@ -354,22 +305,13 @@ export const Login: React.FC = () => {
           </button>
         </div>
 
-<<<<<<< HEAD
-        {/* Role Selector */}
-        <div className="grid grid-cols-2 gap-2 mb-6 text-xs font-semibold">
-          {([
-            { id: 'user', title: isTe ? 'భక్తులు / కుటుంబం' : 'Devotee / Family', sub: 'Book @ ₹11' },
-            { id: 'purohit', title: isTe ? 'పురోహితులు / పీఠం' : 'Purohit / Peeta', sub: 'Aadhaar + ₹1 KYC' },
-          ] as const).map(item => (
-=======
         {/* Role Selector (Admin is only available in Sign In, never public registration) */}
         <div className={`grid ${mode === 'login' ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-6 text-xs font-semibold`}>
           {([
             { id: 'user' as const, title: isTe ? 'భక్తులు / కుటుంబం' : 'Devotee / Family', sub: 'Book @ ₹11' },
-            { id: 'purohit' as const, title: isTe ? 'పురోహితులు / పీఠం' : 'Purohit / Peeta', sub: 'Aadhaar + ₹1 KYC' },
+            { id: 'purohit' as const, title: isTe ? 'పురోహితులు / పీఠం' : 'Purohit / Peeta', sub: '₹1 Witness KYC' },
             ...(mode === 'login' ? [{ id: 'admin' as const, title: 'Platform Admin', sub: 'Verified Only' }] : []),
           ]).map(item => (
->>>>>>> c8c5fd8 (Added Firebase)
             <button
               key={item.id}
               type="button"

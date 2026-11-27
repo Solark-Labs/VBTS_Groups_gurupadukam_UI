@@ -33,15 +33,12 @@ export interface CashfreeVerifyResponse {
   message?: string;
 }
 
-<<<<<<< HEAD
-=======
 export function getApiBaseUrl(): string {
   return ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
 }
 
 const localSandboxOrders = new Map<string, { status: 'ACTIVE' | 'PAID' | 'FAILED'; amount: number; method?: string }>();
 
->>>>>>> c8c5fd8 (Added Firebase)
 export async function createCashfreeTokenOrder(params: {
   bookingRef: string;
   customerName: string;

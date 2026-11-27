@@ -39,78 +39,7 @@ export const AdminDashboard: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({ category: 'powder', stock: 0, price: 0, origPrice: 0 });
 
-  // --- Balance Sheet Calculations (must run unconditionally before auth guard to avoid React #300 on logout) ---
-  const financialStats = useMemo(() => {
-    const validOrders = orders.filter(o => o.status !== 'Cancelled');
-    const totalRevenue = validOrders.reduce((sum, o) => sum + o.total, 0);
-    const totalOrders = validOrders.length;
-    const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
-
-    // Revenue by category
-    const revByCategory: Record<Product['category'], number> = {
-      powder: 0,
-      thread: 0,
-      combo: 0,
-      items: 0,
-      'return-gifts': 0,
-      flowers: 0,
-      prasad: 0,
-      essentials: 0,
-    };
-    validOrders.forEach(o => {
-      o.items.forEach(item => {
-        if (revByCategory[item.category] !== undefined) {
-          revByCategory[item.category] += (item.price * item.qty);
-        }
-      });
-    });
-
-    return { totalRevenue, totalOrders, avgOrderValue, revByCategory };
-  }, [orders]);
-
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
-  // --- Handlers ---
-  const handleEditClick = (p: Product) => {
-    setEditingProduct(p.id);
-    setEditForm({ price: p.price, stock: p.stock });
-  };
-
-  const handleSaveProduct = (p: Product) => {
-    updateProduct({ ...p, price: editForm.price, stock: editForm.stock });
-    setEditingProduct(null);
-  };
-
-  const handleDeleteProduct = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      deleteProduct(id);
-    }
-  };
-
-  const handleAddProduct = (e: React.FormEvent) => {
-    e.preventDefault();
-    const p: Product = {
-      id: `p_${Date.now()}`,
-      name: newProduct.name || 'New Product',
-      nameTe: newProduct.nameTe || '',
-      price: newProduct.price || 0,
-      origPrice: newProduct.origPrice || 0,
-      discount: '',
-      image: newProduct.image || 'https://picsum.photos/600/600',
-      desc: newProduct.desc || '',
-      category: newProduct.category as any,
-      stock: newProduct.stock || 0
-    };
-    addProduct(p);
-    setIsAdding(false);
-    setNewProduct({ category: 'powder', stock: 0, price: 0, origPrice: 0 });
-  };
-
-<<<<<<< HEAD
-=======
-  // --- Balance Sheet & Platform Calculations ---
+  // --- Balance Sheet & Platform Calculations (must run unconditionally before auth guard) ---
   const financialStats = useMemo(() => {
     const validOrders = orders.filter(o => o.status !== 'Cancelled');
     const ordersRevenue = validOrders.reduce((sum, o) => sum + o.total, 0);
@@ -155,6 +84,46 @@ export const AdminDashboard: React.FC = () => {
     };
   }, [orders, bookings, aparaBookings, tickets]);
 
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  // --- Handlers ---
+  const handleEditClick = (p: Product) => {
+    setEditingProduct(p.id);
+    setEditForm({ price: p.price, stock: p.stock });
+  };
+
+  const handleSaveProduct = (p: Product) => {
+    updateProduct({ ...p, price: editForm.price, stock: editForm.stock });
+    setEditingProduct(null);
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this product?')) {
+      deleteProduct(id);
+    }
+  };
+
+  const handleAddProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    const p: Product = {
+      id: `p_${Date.now()}`,
+      name: newProduct.name || 'New Product',
+      nameTe: newProduct.nameTe || '',
+      price: newProduct.price || 0,
+      origPrice: newProduct.origPrice || 0,
+      discount: '',
+      image: newProduct.image || 'https://picsum.photos/600/600',
+      desc: newProduct.desc || '',
+      category: newProduct.category as any,
+      stock: newProduct.stock || 0
+    };
+    addProduct(p);
+    setIsAdding(false);
+    setNewProduct({ category: 'powder', stock: 0, price: 0, origPrice: 0 });
+  };
+
   const handleSeedFirebase = async () => {
     setSyncingFb(true);
     try {
@@ -177,7 +146,6 @@ export const AdminDashboard: React.FC = () => {
     setAlertBody('');
   };
 
->>>>>>> c8c5fd8 (Added Firebase)
   const tabs = [
     { id: 'balance', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'bookings', label: 'Purohit Bookings', icon: Calendar },
