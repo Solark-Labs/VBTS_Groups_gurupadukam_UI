@@ -8,7 +8,7 @@ import { Footer } from './components/Footer';
 import { CartModal } from './components/CartModal';
 import { ToastContainer } from './components/Toast';
 import { PadukaAI } from './components/PadukaAI';
-import { SplashOverlay } from './components/SplashOverlay';
+import { GalaxyBrandSplash } from './components/GalaxyBrandSplash';
 import { Home } from './pages/Home';
 import { Services } from './pages/Services';
 import { Purohits } from './pages/Purohits';
@@ -47,34 +47,11 @@ const BrandSplashScreen: React.FC = () => {
     setVisible(false);
   };
 
-  const isTe = language === 'te';
-
   return (
-    <SplashOverlay
+    <GalaxyBrandSplash
       visible={visible}
       onDismiss={dismiss}
-      autoDismissMs={4200}
-      eyebrow={isTe ? 'ॐ శ్రీ గురుభ్యో నమః · gurupadukam.com' : 'ॐ श्री गुरुभ्यो नमः · gurupadukam.com'}
-      title={isTe ? 'గురు పాదుకంకు స్వాగతం' : 'Welcome to Guru Padukam'}
-      subtitle={
-        isTe
-          ? 'ధృవీకరించబడిన వేద పురోహితులు, గౌరవప్రదమైన అపర సేవ మరియు పూజా సామగ్రి ఒకే వేదికపై.'
-          : 'Verified Vedic Purohits, dignified Apara Seva, and hyperlocal Pooja Stores — transparent and guided.'
-      }
-      features={
-        isTe
-          ? [
-              { icon: '🛡️', title: 'ఆధార్ + ₹1 KYC ధృవీకరణ పొందిన పురోహితులు', desc: 'కేవలం ₹11 టోకెన్‌తో బుకింగ్ — దక్షిణ పురోహితుడితో నేరుగా మాట్లాడుకోవచ్చు.' },
-              { icon: '🔄', title: 'ఉచిత తేదీ మార్పిడి & ₹11 వాలెట్ భద్రత', desc: 'పురోహితుడు రద్దు చేస్తే ₹11 మీ వాలెట్‌లో చేరుతుంది — మరో పురోహితుడిని వెంటనే బుక్ చేయవచ్చు.' },
-              { icon: '🏪', title: 'భాగస్వామి పూజా స్టోర్‌లు & ప్రత్యక్ష సహాయం', desc: 'పూజా సామగ్రి సమస్య ఉంటే గురు పాదుకం బృందం మీ తరపున వ్యాపారితో మాట్లాడుతుంది.' },
-            ]
-          : [
-              { icon: '🛡️', title: 'Aadhaar + ₹1 Witness KYC Purohits @ ₹11 Token', desc: 'Pay only ₹11 online via Cashfree to confirm — settle Dakshina directly and honestly.' },
-              { icon: '🔄', title: 'Free Swaps & Zero-Loss Wallet Safety', desc: 'If a Purohit cancels prior to ritual, ₹11 credits instantly to your Wallet for your next booking.' },
-              { icon: '🏪', title: 'Partner Pooja Stores & Dedicated Support', desc: 'Fresh flowers, essentials & return gifts — Guru Padukam speaks to merchants on your behalf.' },
-            ]
-      }
-      ctaLabel={isTe ? 'గురు పాదుకంలోకి ప్రవేశించండి →' : 'Enter Guru Padukam →'}
+      language={language === 'te' ? 'te' : 'en'}
     />
   );
 };
