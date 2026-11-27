@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guru Padukam – Purohits, Pooja Essentials &amp; Return Gifts</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  
+  <!-- Fonts: Plus Jakarta Sans (Clean Modern UI) & Playfair Display (Traditional Premium Serif) & Noto Serif Telugu -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;0,900;1,600&family=Cinzel:wght@500;600;700;800&family=Noto+Serif+Telugu:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            maroon: { DEFAULT: '#52101E', dk: '#28060F', md: '#6E1629', light: '#8F1E36' },
+            gold: { DEFAULT: '#D4AF37', lt: '#F3E5AB', pale: '#FAF5E9', dk: '#B89025' },
+            cream: '#FDFCF7',
+            ivory: '#F7F3EB',
+            brown: '#3E2723',
+            text: { dk: '#1E1714', md: '#4D423A', lt: '#7C6E65' }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            serif: ['"Playfair Display"', 'Georgia', 'serif'],
+            cinzel: ['"Plus Jakarta Sans"', 'sans-serif'], // Redirect old cinzel usage cleanly
+            cinzelDeco: ['"Playfair Display"', 'serif'],
+            garamond: ['"Plus Jakarta Sans"', 'sans-serif'],
+            telugu: ['"Noto Serif Telugu"', 'serif'],
+          },
+          backgroundImage: {
+            'noise': "url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')",
+          },
+          animation: {
+            'marquee': 'marquee 30s linear infinite',
+            'slide-up': 'slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            'fade-in': 'fadeIn 1s ease-out forwards',
+            'stamp-drop': 'stampDrop 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s forwards',
+            'float': 'float 8s ease-in-out infinite',
+            'ken-burns': 'kenBurns 25s ease-out infinite alternate',
+            'glow-pulse': 'glowPulse 4s infinite alternate',
+            'reveal': 'reveal 1.2s cubic-bezier(0.77, 0, 0.175, 1) forwards',
+            'progress': 'progress 6s linear infinite',
+            'shimmer': 'shimmer 2.5s infinite',
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            marquee: {
+              '0%': { transform: 'translateX(0%)' },
+              '100%': { transform: 'translateX(-50%)' },
+            },
+            slideUp: {
+              '0%': { transform: 'translateY(40px)', opacity: '0' },
+              '100%': { transform: 'translateY(0)', opacity: '1' },
+            },
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' }
+            },
+            stampDrop: {
+              '0%': { transform: 'scale(3) rotate(-15deg)', opacity: '0', filter: 'blur(10px)' },
+              '50%': { transform: 'scale(0.85) rotate(-15deg)', opacity: '1', filter: 'blur(0px)' },
+              '100%': { transform: 'scale(1) rotate(-15deg)', opacity: '0.85' }
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-12px)' }
+            },
+            kenBurns: {
+              '0%': { transform: 'scale(1)' },
+              '100%': { transform: 'scale(1.08)' }
+            },
+            glowPulse: {
+              '0%': { boxShadow: '0 0 15px rgba(212,175,55,0.15)' },
+              '100%': { boxShadow: '0 0 35px rgba(212,175,55,0.5)' }
+            },
+            reveal: {
+              '0%': { clipPath: 'inset(0 100% 0 0)' },
+              '100%': { clipPath: 'inset(0 0 0 0)' }
+            },
+            progress: {
+              '0%': { width: '0%' },
+              '100%': { width: '100%' }
+            },
+            shimmer: {
+              '100%': { transform: 'translateX(100%)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { background-color: #FCFBF8; color: #1E1714; overflow-x: hidden; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    
+    /* Global Noise Overlay for Premium Texture */
+    .bg-texture {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+      opacity: 0.03;
+      mix-blend-mode: multiply;
+    }
+
+    .clip-btn { clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%); }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #FCFBF8; }
+    ::-webkit-scrollbar-thumb { background: #D4AF37; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #AA8C2C; }
+
+    /* Premium UI Classes */
+    .glass { 
+      background: rgba(252, 251, 248, 0.8); 
+      backdrop-filter: blur(24px); 
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(212, 175, 55, 0.2); 
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+    }
+    .glass-dark { 
+      background: rgba(42, 4, 14, 0.85); 
+      backdrop-filter: blur(24px); 
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(212, 175, 55, 0.15); 
+    }
+    .paper-texture { 
+      background-color: #FCFBF8; 
+      background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E"); 
+    }
+    .stamp-ink {
+      mix-blend-mode: multiply;
+      mask-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grunge'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.05' numOctaves='2' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 7 -3' in='noise' result='coloredNoise'/%3E%3CfeComposite operator='in' in='SourceGraphic' in2='coloredNoise'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grunge)'/%3E%3C/svg%3E");
+      -webkit-mask-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grunge'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.05' numOctaves='2' result='noise'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 7 -3' in='noise' result='coloredNoise'/%3E%3CfeComposite operator='in' in='SourceGraphic' in2='coloredNoise'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grunge)'/%3E%3C/svg%3E");
+    }
+
+    /* Print styles for invoice */
+    @media print {
+      body * { visibility: hidden; }
+      #printable-invoice, #printable-invoice * { visibility: visible; }
+      #printable-invoice { position: absolute; left: 0; top: 0; width: 100%; }
+      .no-print { display: none !important; }
+    }
+  </style>
+
+  <!-- Import Map -->
+  </head>
+<body>
+  <div class="bg-texture"></div>
+  <div id="root"></div>
+  <script type="module" src="./index.tsx"></script>
+</body>
+</html>
