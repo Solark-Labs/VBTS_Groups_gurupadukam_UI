@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppProvider, useAppContext } from './contexts/AppContext';
@@ -10,23 +10,24 @@ import { ToastContainer } from './components/Toast';
 import { PadukaAI } from './components/PadukaAI';
 import { GalaxyBrandSplash } from './components/GalaxyBrandSplash';
 import { Home } from './pages/Home';
-import { Services } from './pages/Services';
-import { Purohits } from './pages/Purohits';
-import { PurohitProfile } from './pages/PurohitProfile';
-import { PurohitDashboard } from './pages/PurohitDashboard';
-import { Apara } from './pages/Apara';
-import { AparaProfile } from './pages/AparaProfile';
-import { Marketplace } from './pages/Marketplace';
-import { About } from './pages/About';
-import { TrackOrder } from './pages/TrackOrder';
-import { Login } from './pages/Login';
-import { Profile } from './pages/Profile';
-import { AdminDashboard } from './pages/AdminDashboard';
-import { PrivacyPolicy } from './pages/PrivacyPolicy';
-import { TermsOfService } from './pages/TermsOfService';
-import { ShippingPolicy } from './pages/ShippingPolicy';
-import { ReturnPolicy } from './pages/ReturnPolicy';
-import { NotFound } from './pages/NotFound';
+
+const Services = lazy(() => import('./pages/Services').then(m => ({ default: m.Services })));
+const Purohits = lazy(() => import('./pages/Purohits').then(m => ({ default: m.Purohits })));
+const PurohitProfile = lazy(() => import('./pages/PurohitProfile').then(m => ({ default: m.PurohitProfile })));
+const PurohitDashboard = lazy(() => import('./pages/PurohitDashboard').then(m => ({ default: m.PurohitDashboard })));
+const Apara = lazy(() => import('./pages/Apara').then(m => ({ default: m.Apara })));
+const AparaProfile = lazy(() => import('./pages/AparaProfile').then(m => ({ default: m.AparaProfile })));
+const Marketplace = lazy(() => import('./pages/Marketplace').then(m => ({ default: m.Marketplace })));
+const About = lazy(() => import('./pages/About').then(m => ({ default: m.About })));
+const TrackOrder = lazy(() => import('./pages/TrackOrder').then(m => ({ default: m.TrackOrder })));
+const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
+const TermsOfService = lazy(() => import('./pages/TermsOfService').then(m => ({ default: m.TermsOfService })));
+const ShippingPolicy = lazy(() => import('./pages/ShippingPolicy').then(m => ({ default: m.ShippingPolicy })));
+const ReturnPolicy = lazy(() => import('./pages/ReturnPolicy').then(m => ({ default: m.ReturnPolicy })));
+const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 
 const BrandSplashScreen: React.FC = () => {
   const { language } = useAppContext();
@@ -97,7 +98,8 @@ const App: React.FC = () => {
           <Navbar />
           <BrandSplashScreen />
           <main className="flex-grow">
-            <Routes>
+            <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center bg-cream text-maroon font-cinzel text-sm">Loading…</div>}>
+              <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/services" element={<Services />} />
               <Route path="/purohits" element={<Purohits />} />
@@ -120,6 +122,7 @@ const App: React.FC = () => {
               <Route path="/return-policy" element={<ReturnPolicy />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </main>
           <Footer />
           <CartModal />

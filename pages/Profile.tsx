@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   User as UserIcon, MapPin, Lock, Bell, Save, Loader2, Globe, Camera,
   CalendarCheck, Package, Phone, ExternalLink, CheckCircle2, Sparkles, X,
-  Wallet, RefreshCw, XCircle, ShieldCheck
+  Wallet, RefreshCw, XCircle, ShieldCheck, Navigation
 } from 'lucide-react';
 import { useAppContext } from '../contexts/AppContext';
 import { PAN_INDIA_LANGUAGES, LanguageCode, getLanguageMeta } from '../i18n/languages';
@@ -47,8 +47,10 @@ export const Profile: React.FC = () => {
   const [profileImage, setProfileImage] = useState<string | undefined>(undefined);
   const [selectedLang, setSelectedLang] = useState<LanguageCode>(language);
   const [address, setAddress] = useState('');
-  const [city, setCity] = useState('Khammam');
-  const [pincode, setPincode] = useState('507002');
+  const [city, setCity] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [isDetectingLoc, setIsDetectingLoc] = useState(false);
+  const [locAutoAttempted, setLocAutoAttempted] = useState(false);
   const [notifications, setNotifications] = useState({ email: true, sms: false });
 
   // Category filter
@@ -68,8 +70,8 @@ export const Profile: React.FC = () => {
       setProfileImage(user.profileImage);
       setSelectedLang(user.preferredLanguage || language);
       setAddress(user.address || '');
-      setCity(user.city || 'Khammam');
-      setPincode(user.pincode || '507002');
+      setCity(user.city || '');
+      setPincode(user.pincode || '');
       if (user.notifications) {
         setNotifications(user.notifications);
       }
@@ -162,13 +164,65 @@ export const Profile: React.FC = () => {
     }
   };
 
+  const isTe = language === 'te';
+
+  const detectLocation = useCallback((silent = false) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      if (!silent) addToast(isTe ? 'ఈ బ్రౌజర్‌లో స్థానం గుర్తింపు అందుబాటులో లేదు.' : 'Location detection is not supported in this browser.', 'error');
+      return;
+    }
+    setIsDetectingLoc(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+          const addr = data?.address || {};
+          const detectedCity =
+            addr.city || addr.town || addr.village || addr.county || addr.state_district || '';
+          const detectedPin = String(addr.postcode || '').replace(/\D/g, '').slice(0, 6);
+          if (detectedCity) setCity(detectedCity);
+          if (detectedPin) setPincode(detectedPin);
+          if (!address && data?.display_name) {
+            setAddress(String(data.display_name).split(',').slice(0, 3).join(', ').trim());
+          }
+          if (!silent) {
+            addToast(
+              isTe ? 'మీ స్థానం & పిన్ కోడ్ గుర్తించబడ్డాయి!' : 'Location & PIN code detected!',
+              'success'
+            );
+          }
+        } catch {
+          if (!silent) addToast(isTe ? 'దయచేసి నగరం & పిన్ నమోదు చేయండి.' : 'Could not fetch address details. Please enter manually.', 'info');
+        } finally {
+          setIsDetectingLoc(false);
+        }
+      },
+      () => {
+        setIsDetectingLoc(false);
+        if (!silent) addToast(isTe ? 'స్థానం అనుమతి నిరాకరించబడింది.' : 'Location permission denied.', 'info');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, [addToast, address, isTe]);
+
+  useEffect(() => {
+    if (activeTab === 'address' && !locAutoAttempted && (!city || !pincode || !address)) {
+      setLocAutoAttempted(true);
+      detectLocation(true);
+    }
+  }, [activeTab, locAutoAttempted, city, pincode, address, detectLocation]);
+
   const currentLangMeta = getLanguageMeta(language);
 
   const tabs: { id: ProfileTab; label: string; icon: React.ComponentType<{ size?: number }>; badge?: number | string }[] = [
     { id: 'personal', label: t('tabPersonal'), icon: UserIcon },
     { id: 'bookings', label: t('tabBookings'), icon: CalendarCheck, badge: activeBookingsCount },
-    { id: 'cancelled', label: 'Cancelled', icon: XCircle, badge: cancelledCount },
-    { id: 'refunds', label: 'Wallet & Refunds', icon: Wallet, badge: walletBalance > 0 ? `₹${walletBalance}` : undefined },
+    { id: 'cancelled', label: isTe ? 'రద్దు చేసినవి' : 'Cancelled', icon: XCircle, badge: cancelledCount },
+    { id: 'refunds', label: isTe ? 'వాలెట్ & వాపసు' : 'Wallet & Refunds', icon: Wallet, badge: walletBalance > 0 ? `₹${walletBalance}` : undefined },
     { id: 'language', label: t('tabLanguage'), icon: Globe },
     { id: 'address', label: t('tabAddress'), icon: MapPin },
     { id: 'security', label: t('tabSecurity'), icon: Lock },
@@ -316,7 +370,9 @@ export const Profile: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Full Name</label>
+                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">
+                      {isTe ? 'పూర్తి పేరు' : 'Full Name'}
+                    </label>
                     <input
                       type="text"
                       value={name}
@@ -326,23 +382,29 @@ export const Profile: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Email Address</label>
+                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">
+                      {isTe ? 'ఇమెయిల్ చిరునామా' : 'Email Address'}
+                    </label>
                     <input
                       type="email"
                       value={user.email}
                       disabled
                       className="w-full px-4 py-2.5 border border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed rounded"
                     />
-                    <p className="text-[0.65rem] text-gray-400 mt-1">Email cannot be changed.</p>
+                    <p className="text-[0.65rem] text-gray-400 mt-1">
+                      {isTe ? 'ఇమెయిల్ మార్చలేరు.' : 'Email cannot be changed.'}
+                    </p>
                   </div>
                   <div>
-                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Phone Number</label>
+                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">
+                      {isTe ? 'ఫోన్ నంబర్' : 'Phone Number'}
+                    </label>
                     <input
                       type="tel"
                       maxLength={10}
                       value={phone}
                       onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      placeholder="10-digit mobile (starts with 6-9)"
+                      placeholder={isTe ? '10-అంకెల మొబైల్ నంబర్' : '10-digit mobile (starts with 6-9)'}
                       className="w-full px-4 py-2.5 border border-gold/30 focus:outline-none focus:border-maroon bg-cream/10 rounded"
                     />
                   </div>
@@ -815,42 +877,68 @@ export const Profile: React.FC = () => {
             {/* Address */}
             {activeTab === 'address' && (
               <form onSubmit={handleSaveAddress} className="space-y-6 animate-slide-up">
-                <h2 className="font-cinzel text-xl font-bold text-maroon border-b border-gold/20 pb-3">Shipping &amp; Ritual Address</h2>
-                <p className="text-sm text-text-md">This address will be used by default for your Purohit bookings and orders.</p>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gold/20 pb-3">
+                  <h2 className="font-cinzel text-xl font-bold text-maroon">
+                    {isTe ? 'డెలివరీ & పూజా చిరునామా' : 'Shipping & Ritual Address'}
+                  </h2>
+                  <button
+                    type="button"
+                    disabled={isDetectingLoc}
+                    onClick={() => detectLocation(false)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-maroon bg-gold/20 hover:bg-gold/30 border border-gold/40 px-3 py-1.5 rounded transition-colors disabled:opacity-60"
+                  >
+                    {isDetectingLoc ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} />}
+                    {isDetectingLoc
+                      ? (isTe ? 'గుర్తిస్తోంది…' : 'Detecting…')
+                      : (isTe ? 'నా స్థానం & పిన్ గుర్తించండి' : 'Detect My Location & PIN')}
+                  </button>
+                </div>
+                <p className="text-sm text-text-md">
+                  {isTe
+                    ? 'మీ పురోహిత బుకింగ్‌లు మరియు ఆర్డర్ల కోసం ఈ చిరునామా ఉపయోగించబడుతుంది.'
+                    : 'This address will be used by default for your Purohit bookings and orders.'}
+                </p>
 
                 <div>
-                  <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Complete Address *</label>
+                  <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">
+                    {isTe ? 'పూర్తి చిరునామా *' : 'Complete Address *'}
+                  </label>
                   <textarea
                     value={address}
                     onChange={e => setAddress(e.target.value)}
                     required
                     rows={3}
-                    placeholder="House/Flat No., Street, Landmark"
+                    placeholder={isTe ? 'ఇంటి నం., వీధి, గుర్తు చిహ్నం' : 'House/Flat No., Street, Landmark'}
                     className="w-full px-4 py-3 border border-gold/30 focus:outline-none focus:border-maroon bg-cream/10 resize-none rounded"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">City / Town *</label>
+                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">
+                      {isTe ? 'నగరం / పట్టణం *' : 'City / Town *'}
+                    </label>
                     <input
                       type="text"
                       value={city}
                       onChange={e => setCity(e.target.value)}
                       required
-                      placeholder="e.g. Khammam"
+                      placeholder={isTe ? 'నగరం / పట్టణం' : 'Enter city / town'}
                       className="w-full px-4 py-2.5 border border-gold/30 focus:outline-none focus:border-maroon bg-cream/10 rounded"
                     />
                   </div>
                   <div>
-                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Postal PIN Code *</label>
+                    <label className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">
+                      {isTe ? 'పిన్ కోడ్ *' : 'Postal PIN Code *'}
+                    </label>
                     <input
                       type="text"
+                      inputMode="numeric"
                       maxLength={6}
                       value={pincode}
-                      onChange={e => setPincode(e.target.value.replace(/\D/g, ''))}
+                      onChange={e => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       required
-                      placeholder="e.g. 507002"
+                      placeholder={isTe ? '6-అంకెల పిన్ కోడ్' : '6-digit PIN'}
                       className="w-full px-4 py-2.5 border border-gold/30 focus:outline-none focus:border-maroon bg-cream/10 rounded"
                     />
                   </div>
@@ -863,7 +951,7 @@ export const Profile: React.FC = () => {
                     className="bg-maroon text-gold-pale px-8 py-3 clip-btn hover:bg-maroon-md transition-colors flex items-center gap-2 font-cinzel tracking-widest uppercase text-sm disabled:opacity-70"
                   >
                     {isAuthLoading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                    Save Address
+                    {isTe ? 'చిరునామా సేవ్ చేయండి' : 'Save Address'}
                   </button>
                 </div>
               </form>
@@ -872,7 +960,9 @@ export const Profile: React.FC = () => {
             {/* Security */}
             {activeTab === 'security' && (
               <form onSubmit={handleSavePassword} className="space-y-6 animate-slide-up">
-                <h2 className="font-cinzel text-xl font-bold text-maroon border-b border-gold/20 pb-3">Change Password</h2>
+                <h2 className="font-cinzel text-xl font-bold text-maroon border-b border-gold/20 pb-3">
+                  {isTe ? 'పాస్‌వర్డ్ మార్చండి' : 'Change Password'}
+                </h2>
 
                 <div className="max-w-md space-y-5">
                   <div>
