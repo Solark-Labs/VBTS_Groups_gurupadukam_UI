@@ -260,6 +260,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const existingUser = await firebaseMock.auth.login(email, password);
       setUser(existingUser);
+      setIsEmailVerified(firebaseMock.auth.isCurrentUserEmailVerified());
       localStorage.setItem('gp_user', JSON.stringify(existingUser));
       if (existingUser.preferredLanguage === 'te' || existingUser.preferredLanguage === 'en') {
         setLanguageState(existingUser.preferredLanguage);
@@ -298,6 +299,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (outcome.status === 'authenticated') {
         const googleUser = outcome.user;
         setUser(googleUser);
+        setIsEmailVerified(firebaseMock.auth.isCurrentUserEmailVerified());
         localStorage.setItem('gp_user', JSON.stringify(googleUser));
         if (googleUser.preferredLanguage === 'te' || googleUser.preferredLanguage === 'en') {
           setLanguageState(googleUser.preferredLanguage);
@@ -322,6 +324,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const completedUser = await firebaseMock.auth.completeGoogleRegistration(uid, data);
       setUser(completedUser);
+      setIsEmailVerified(firebaseMock.auth.isCurrentUserEmailVerified());
       localStorage.setItem('gp_user', JSON.stringify(completedUser));
       if (completedUser.preferredLanguage === 'te' || completedUser.preferredLanguage === 'en') {
         setLanguageState(completedUser.preferredLanguage);
@@ -390,6 +393,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const newUser = await firebaseMock.auth.register(data);
       setUser(newUser);
+      setIsEmailVerified(firebaseMock.auth.isCurrentUserEmailVerified());
       localStorage.setItem('gp_user', JSON.stringify(newUser));
       if (newUser.preferredLanguage === 'te' || newUser.preferredLanguage === 'en') {
         setLanguageState(newUser.preferredLanguage);
@@ -421,6 +425,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const logout = () => {
     firebaseMock.auth.logout();
     setUser(null);
+    setIsEmailVerified(false);
     localStorage.removeItem('gp_user');
     localStorage.removeItem('gp_auth_token');
     setCart([]);

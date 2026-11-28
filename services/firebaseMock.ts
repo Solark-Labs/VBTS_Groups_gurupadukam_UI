@@ -47,7 +47,7 @@ import {
   RegistrationData,
 } from '../types';
 import { INITIAL_PRODUCTS, PUROHITS, APARA_PEETAS } from '../constants';
-import { getApiBaseUrl } from './paymentService';
+import { getApiBaseUrl, hasApiBackend } from './paymentService';
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -657,6 +657,7 @@ export const firebaseMock = {
         return { status: 'unknown' };
       }
 
+      let emailIndexReadFailed = false;
       if (isFirebaseConfigured && db) {
         try {
           const snap = await getDoc(doc(db, 'emailIndex', getEmailIndexId(cleanEmail)));
@@ -667,6 +668,7 @@ export const firebaseMock = {
           return { status: 'not_found' };
         } catch {
           // Rules may restrict unauthenticated read if not updated yet
+          emailIndexReadFailed = true;
         }
       }
 
@@ -675,22 +677,24 @@ export const firebaseMock = {
         return { status: 'found', authMethod: 'password' };
       }
 
-      try {
-        const baseUrl = getApiBaseUrl();
-        const res = await fetch(`${baseUrl}/api/auth/check-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: cleanEmail }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          return { status: data.exists ? 'found' : 'not_found', authMethod: 'password' };
+      if (hasApiBackend()) {
+        try {
+          const baseUrl = getApiBaseUrl();
+          const res = await fetch(`${baseUrl}/api/auth/check-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: cleanEmail }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            return { status: data.exists ? 'found' : 'not_found', authMethod: 'password' };
+          }
+        } catch {
+          // Ignore network errors
         }
-      } catch {
-        // Ignore network errors
       }
 
-      return { status: 'not_found' };
+      return { status: emailIndexReadFailed || !isFirebaseConfigured ? 'unknown' : 'not_found' };
     },
 
     async login(email: string, password?: string): Promise<User> {

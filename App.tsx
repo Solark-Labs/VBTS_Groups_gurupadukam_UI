@@ -139,7 +139,7 @@ const App: React.FC = () => {
           </a>
         </div>
       </HashRouter>
-      <SpeedInsights />
+      {typeof window !== 'undefined' && window.location.hostname.endsWith('.vercel.app') && <SpeedInsights />}
     </AppProvider>
     </ErrorBoundary>
   );

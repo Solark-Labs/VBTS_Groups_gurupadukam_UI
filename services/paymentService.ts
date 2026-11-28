@@ -37,6 +37,13 @@ export function getApiBaseUrl(): string {
   return ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
 }
 
+export function hasApiBackend(): boolean {
+  if (getApiBaseUrl()) return true;
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.vercel.app');
+}
+
 const localSandboxOrders = new Map<string, { status: 'ACTIVE' | 'PAID' | 'FAILED'; amount: number; method?: string }>();
 
 export async function createCashfreeTokenOrder(params: {
@@ -123,6 +130,7 @@ export async function syncPurohitKycToBackend(params: {
   readyToShowVerification: boolean;
   vedicSampradaya?: string;
 }): Promise<void> {
+  if (!hasApiBackend()) return;
   try {
     await fetch(`${API_BASE_URL}/api/purohit/kyc`, {
       method: 'POST',
@@ -135,6 +143,7 @@ export async function syncPurohitKycToBackend(params: {
 }
 
 export async function syncBookingCreateToBackend(booking: unknown): Promise<void> {
+  if (!hasApiBackend()) return;
   try {
     await fetch(`${API_BASE_URL}/api/bookings/create`, {
       method: 'POST',
@@ -153,6 +162,7 @@ export async function syncBookingNoteToBackend(params: {
   advancePaidToPurohit?: number;
   acknowledgeAdvance?: boolean;
 }): Promise<void> {
+  if (!hasApiBackend()) return;
   try {
     await fetch(`${API_BASE_URL}/api/bookings/update-note`, {
       method: 'POST',
@@ -169,6 +179,7 @@ export async function syncDevoteeCancelToBackend(params: {
   reason: string;
   actionType?: 'cancel' | 'swap';
 }): Promise<void> {
+  if (!hasApiBackend()) return;
   try {
     await fetch(`${API_BASE_URL}/api/bookings/devotee-cancel`, {
       method: 'POST',
@@ -189,6 +200,7 @@ export async function syncPurohitActionToBackend(params: {
   finalTime?: string;
   nakshatram?: string;
 }): Promise<void> {
+  if (!hasApiBackend()) return;
   try {
     await fetch(`${API_BASE_URL}/api/bookings/purohit-action`, {
       method: 'POST',

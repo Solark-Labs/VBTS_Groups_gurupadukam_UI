@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../contexts/AppContext';
 import { PAN_INDIA_LANGUAGES, LanguageCode } from '../i18n/languages';
-import { CashfreeOrderResponse, createCashfreeTokenOrder, getApiBaseUrl } from '../services/paymentService';
+import { CashfreeOrderResponse, createCashfreeTokenOrder, getApiBaseUrl, hasApiBackend } from '../services/paymentService';
 import { CashfreeCheckoutModal } from '../components/CashfreeCheckoutModal';
 import { isFirebaseConfigured } from '../services/firebase';
 
@@ -87,6 +87,7 @@ export const Login: React.FC = () => {
   } | null>(null);
 
   const isTe = language === 'te';
+  const otpApiAvailable = hasApiBackend();
 
   const detectLocation = useCallback((silent = false) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -292,6 +293,16 @@ export const Login: React.FC = () => {
     const cleanEmail = regEmail.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       addToast(isTe ? 'దయచేసి సరైన ఇమెయిల్ చిరునామా నమోదు చేయండి.' : 'Please enter a valid email address first.', 'error');
+      return;
+    }
+    if (!otpApiAvailable) {
+      setUseFirebaseLinkVerify(true);
+      setEmailOtpSent(false);
+      const infoMsg = isTe
+        ? 'Firebase Console SMTP (connect@gurupadukam.com) యాక్టివ్‌గా ఉంది — కింద నమోదు పూర్తి చేసిన వెంటనే మీ ఇమెయిల్‌కు ధృవీకరణ లింక్ పంపబడుతుంది.'
+        : 'Firebase Console SMTP is active — complete registration below and Firebase will send a verification link to your email (check Inbox/Spam).';
+      setEmailOtpMsg(infoMsg);
+      addToast(infoMsg, 'info');
       return;
     }
     setSendingEmailOtp(true);
@@ -758,7 +769,7 @@ export const Login: React.FC = () => {
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 border border-green-300 px-2 py-0.5 rounded-full">
                         <CheckCircle2 size={11} /> {isTe ? 'ధృవీకరించబడింది' : 'Verified'}
                       </span>
-                    ) : (
+                    ) : otpApiAvailable ? (
                       <button
                         type="button"
                         disabled={sendingEmailOtp}
@@ -771,6 +782,10 @@ export const Login: React.FC = () => {
                           ? (isTe ? 'మళ్లీ పంపండి' : 'Resend OTP')
                           : (isTe ? 'Verify Email (OTP)' : 'Verify Email')}
                       </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-maroon bg-gold/20 border border-gold/40 px-2 py-0.5 rounded-full">
+                        {isTe ? 'Firebase SMTP ధృవీకరణ' : 'Firebase Email Verify'}
+                      </span>
                     )
                   )}
                 </div>
@@ -845,9 +860,13 @@ export const Login: React.FC = () => {
                   <p className="text-[10px] text-text-lt mt-1">
                     {emailVerified
                       ? 'Email verified via 6-digit OTP.'
+                      : otpApiAvailable
+                      ? isTe
+                        ? 'నమోదు తర్వాత Firebase SMTP ద్వారా లేదా Verify Email (OTP) ద్వారా ధృవీకరించవచ్చు.'
+                        : 'Firebase SMTP will send your verification link on registration (or click Verify Email for OTP).'
                       : isTe
-                      ? 'నమోదు తర్వాత Firebase SMTP ద్వారా మీ ఇమెయిల్‌కు ధృవీకరణ లింక్ పంపబడుతుంది.'
-                      : 'Firebase SMTP will send your verification link on registration (or click Verify Email for OTP).'}
+                      ? 'నమోదు పూర్తి చేసిన వెంటనే Firebase Console SMTP (connect@gurupadukam.com) మీ ఇమెయిల్‌కు ధృవీకరణ లింక్ పంపుతుంది.'
+                      : 'Firebase Console SMTP (connect@gurupadukam.com) sends your verification link immediately after registration — then click Verify.'}
                   </p>
                 )}
               </div>
