@@ -780,6 +780,9 @@ export const firebaseMock = {
       if (!isFirebaseConfigured || !auth?.currentUser) return false;
       try {
         await auth.currentUser.reload();
+        if (auth.currentUser.emailVerified) {
+          await auth.currentUser.getIdToken(true).catch(() => {});
+        }
         return Boolean(auth.currentUser.emailVerified);
       } catch {
         return false;

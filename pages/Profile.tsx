@@ -62,6 +62,8 @@ export const Profile: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [sendingVerification, setSendingVerification] = useState(false);
+  const [checkingVerification, setCheckingVerification] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -987,27 +989,54 @@ export const Profile: React.FC = () => {
                 }`}>
                   <div>
                     <div className="font-bold text-sm">
-                      {isEmailVerified ? '✓ Email Address Verified' : '⚠ Email Verification Required'}
+                      {isEmailVerified
+                        ? (isTe ? '✓ ఇమెయిల్ చిరునామా ధృవీకరించబడింది' : '✓ Email Address Verified')
+                        : (isTe ? '⚠ ఇమెయిల్ ధృవీకరణ అవసరం' : '⚠ Email Verification Required')}
                     </div>
                     <div className="text-[11px] mt-0.5">
-                      {user.email} · {isEmailVerified ? 'Verified via Firebase Authentication' : 'Click Verify Email to send a verification link to your email on gurupadukam.com.'}
+                      {user.email} ·{' '}
+                      {isEmailVerified
+                        ? (isTe ? 'Firebase ద్వారా ధృవీకరించబడింది' : 'Verified via Firebase Authentication')
+                        : (isTe ? 'మీ ఇమెయిల్‌కు ధృవీకరణ లింక్ పంపడానికి "Verify Email" క్లిక్ చేయండి.' : 'Click Verify Email to send a verification link to your email on gurupadukam.com.')}
                     </div>
                   </div>
                   {!isEmailVerified && (
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
-                        onClick={() => resendVerificationEmail()}
-                        className="px-3.5 py-2 bg-maroon text-gold-pale font-bold rounded hover:bg-maroon-md"
+                        disabled={sendingVerification}
+                        onClick={async () => {
+                          setSendingVerification(true);
+                          try {
+                            await resendVerificationEmail();
+                          } catch {
+                            // Toast handled in AppContext
+                          } finally {
+                            setSendingVerification(false);
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-maroon text-gold-pale font-bold rounded hover:bg-maroon-md disabled:opacity-60"
                       >
-                        Verify Email
+                        {sendingVerification
+                          ? (isTe ? 'పంపుతోంది…' : 'Sending…')
+                          : (isTe ? 'ఇమెయిల్ ధృవీకరించండి' : 'Verify Email')}
                       </button>
                       <button
                         type="button"
-                        onClick={() => checkEmailVerificationStatus()}
-                        className="px-3 py-2 bg-white border border-maroon/40 text-maroon font-bold rounded hover:bg-maroon/5"
+                        disabled={checkingVerification}
+                        onClick={async () => {
+                          setCheckingVerification(true);
+                          try {
+                            await checkEmailVerificationStatus();
+                          } finally {
+                            setCheckingVerification(false);
+                          }
+                        }}
+                        className="px-3 py-2 bg-white border border-maroon/40 text-maroon font-bold rounded hover:bg-maroon/5 disabled:opacity-60"
                       >
-                        Confirm Verified
+                        {checkingVerification
+                          ? (isTe ? 'తనిఖీ చేస్తోంది…' : 'Checking…')
+                          : (isTe ? 'ధృవీకరణ నిర్ధారించండి' : 'Confirm Verified')}
                       </button>
                     </div>
                   )}
