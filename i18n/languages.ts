@@ -603,6 +603,27 @@ const DYNAMIC_TE_MAP: Record<string, string> = {
   '✓ 100% Pure': '✓ 100% స్వచ్ఛమైనది',
   '⚡ In Minutes': '⚡ నిమిషాల్లో డెలివరీ',
   '⚡ Express Delivery': '⚡ ఎక్స్‌ప్రెస్ డెలివరీ',
+
+  // Pooja Package Occasions & Includes
+  'Bhoomi / Vehicle Pooja': 'భూమి / వాహన పూజ',
+  'Navaratris & Vratha': 'నవరాత్రులు & వ్రతాలు',
+  'Vivah / Upanayanam': 'వివాహం / ఉపనయనం',
+  'Verified Purohit (₹11 Token)': 'ధృవీకరించబడిన పురోహితుడు (₹11 టోకెన్)',
+  'Full Pooja Items Kit': 'సంపూర్ణ పూజా సామగ్రి కిట్',
+  'Fresh Flower Torans': 'తాజా పూల తోరణాలు',
+  'Return Gift Hampers': 'రిటర్న్ గిఫ్ట్ హ్యాంపర్లు',
+  'Instant Purohit Slot': 'తక్షణ పురోహిత స్లాట్',
+  'Express Pooja Kit in Minutes': 'నిమిషాల్లో ఎక్స్‌ప్రెస్ పూజా కిట్',
+  'Fresh Garlands & Lemons': 'తాజా పూలమాలలు & నిమ్మకాయలు',
+  'Direct Dakshina Negotiation': 'నేరుగా దక్షిణ చర్చ',
+  'Experienced Vratha Purohit': 'అనుభవజ్ఞులైన వ్రత పురోహితుడు',
+  'Pasupu, Kumkum & Kalasam': 'పసుపు, కుంకుమ & కలశం',
+  'Prasad & Panakam Kit': 'ప్రసాదం & పానకం కిట్',
+  'Custom Return Gifts for Guests': 'అతిథుల కోసం కస్టమ్ రిటర్న్ గిఫ్ట్స్',
+  'Senior Purohit + Team': 'సీనియర్ పురోహితుడు + బృందం',
+  'Nadaswaram Troupe': 'నాదస్వరం బృందం',
+  'Bulk Tambulam Return Gifts': 'బల్క్ తాంబూలం రిటర్న్ గిఫ్ట్స్',
+  'Full Event Necessaries Delivered': 'వేడుకకు కావలసినవన్నీ ఇంటి వద్దకు డెలివరీ',
 };
 
 export function localizeDynamic(text: string, lang: LanguageCode): string {

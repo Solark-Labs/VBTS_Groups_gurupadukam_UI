@@ -333,7 +333,11 @@ export const Home: React.FC = () => {
               <span className="inline-block w-10 h-[1px] bg-gold" /> Complete Ritual Assistance <span className="inline-block w-10 h-[1px] bg-gold" />
             </div>
             <h2 className="font-cinzel text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-cream tracking-wide uppercase">{t('homeRitualsTitle')}</h2>
-            <p className="font-garamond text-lg text-cream/65 italic mt-2">Vehicle Pooja · House Warming · Bhoomi / Shop Pooja · Navaratris · Vratha</p>
+            <p className="font-garamond text-lg text-cream/65 italic mt-2">
+              {language === 'te'
+                ? 'వాహన పూజ · గృహ ప్రవేశం · భూమి / దుకాణ పూజ · నవరాత్రులు · వ్రతాలు'
+                : 'Vehicle Pooja · House Warming · Bhoomi / Shop Pooja · Navaratris · Vratha'}
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -364,15 +368,17 @@ export const Home: React.FC = () => {
                   <h3 className="font-cinzel text-sm font-bold text-cream mb-1">
                     {language === 'te' ? pkg.nameTe : pkg.name}
                   </h3>
-                  <p className="font-telugu text-[0.65rem] text-cream/55 mb-4">
-                    {language === 'te' ? pkg.name : pkg.nameTe}
-                  </p>
+                  {language !== 'te' && (
+                    <p className="font-telugu text-[0.65rem] text-cream/55 mb-4">
+                      {pkg.nameTe}
+                    </p>
+                  )}
 
-                  <ul className="space-y-1.5 mb-5 flex-1">
+                  <ul className={`space-y-1.5 mb-5 flex-1 ${language === 'te' ? 'mt-3' : ''}`}>
                     {pkg.includes.map(inc => (
                       <li key={inc} className="flex items-start gap-2">
                         <CheckCircle size={12} className="text-green-400 mt-0.5 shrink-0" />
-                        <span className="text-[0.68rem] text-cream/75">{inc}</span>
+                        <span className="text-[0.68rem] text-cream/75">{localizeDynamic(inc, language)}</span>
                       </li>
                     ))}
                   </ul>
@@ -398,7 +404,9 @@ export const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
             <div>
-              <div className="font-cinzel text-[0.65rem] tracking-[0.3em] uppercase text-maroon mb-2">Pooja Store</div>
+              <div className="font-cinzel text-[0.65rem] tracking-[0.3em] uppercase text-maroon mb-2">
+                {language === 'te' ? 'పూజా స్టోర్' : 'Pooja Store'}
+              </div>
               <h2 className="font-cinzel text-[clamp(1.8rem,4vw,2.6rem)] font-bold text-text-dk tracking-wide uppercase">{t('homeMktTitle')}</h2>
               <p className="font-garamond text-lg text-text-md italic mt-1">{t('homeMktSub')}</p>
             </div>
