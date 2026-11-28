@@ -31,6 +31,8 @@ interface AppContextType {
   completeGoogleRegistration: (uid: string, data: RegistrationData) => Promise<User>;
   resetPassword: (email: string) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
+  checkEmailVerificationStatus: () => Promise<boolean>;
+  isEmailVerified: boolean;
   register: (data: RegistrationData) => Promise<User>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -121,6 +123,9 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState<boolean>(() =>
+    firebaseMock.auth.isCurrentUserEmailVerified()
+  );
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('gp_user');
     return saved ? JSON.parse(saved) : null;
@@ -207,6 +212,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           return;
         }
         setUser(verifiedUser);
+        setIsEmailVerified(Boolean(fbUser.emailVerified));
         localStorage.setItem('gp_user', JSON.stringify(verifiedUser));
         refreshCloudData();
       });
@@ -361,6 +367,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addToast(error?.message || 'Unable to send verification email.', 'error');
       throw error;
     }
+  };
+
+  const checkEmailVerificationStatus = async (): Promise<boolean> => {
+    const verified = await firebaseMock.auth.checkEmailVerificationStatus();
+    setIsEmailVerified(verified);
+    if (verified) {
+      addToast('Your email is verified! ✓', 'success');
+    } else {
+      addToast('Email not verified yet — please click the verification link in your inbox or spam folder.', 'info');
+    }
+    return verified;
   };
 
   const register = async (data: RegistrationData): Promise<User> => {
@@ -1359,7 +1376,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       language, setLanguage, t,
-      user, login, adminLogin, signInWithGoogle, completeGoogleRegistration, resetPassword, resendVerificationEmail, register, logout, updateProfile, changePassword, isAdmin, isAuthLoading, seedCatalogToFirestore,
+      user, login, adminLogin, signInWithGoogle, completeGoogleRegistration, resetPassword, resendVerificationEmail, checkEmailVerificationStatus, isEmailVerified, register, logout, updateProfile, changePassword, isAdmin, isAuthLoading, seedCatalogToFirestore,
       cart, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, isCartOpen, setCartOpen,
       products, updateProduct, addProduct, deleteProduct, orders, placeOrder, updateOrderStatus,
       walletBalance, walletTransactions, debitWalletForBooking,

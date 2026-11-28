@@ -27,6 +27,7 @@ type ProfileTab =
 export const Profile: React.FC = () => {
   const {
     user, updateProfile, changePassword, isAuthLoading, addToast,
+    isEmailVerified, resendVerificationEmail, checkEmailVerificationStatus,
     language, setLanguage, t,
     bookings, aparaBookings, orders,
     walletBalance, walletTransactions,
@@ -974,7 +975,40 @@ export const Profile: React.FC = () => {
             {activeTab === 'security' && (() => {
               const hasPw = firebaseMock.auth.hasPasswordProvider();
               return (
-              <form onSubmit={handleSavePassword} className="space-y-6 animate-slide-up">
+              <div className="space-y-6 animate-slide-up">
+                {/* Email Verification Box */}
+                <div className={`p-4 rounded-lg border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                  isEmailVerified ? 'bg-green-50 border-green-200 text-green-900' : 'bg-amber-50 border-amber-300 text-amber-950'
+                }`}>
+                  <div>
+                    <div className="font-bold text-sm">
+                      {isEmailVerified ? '✓ Email Address Verified' : '⚠ Email Verification Required'}
+                    </div>
+                    <div className="text-[11px] mt-0.5">
+                      {user.email} · {isEmailVerified ? 'Verified via Firebase Authentication' : 'Click Verify Email to send a verification link to your email on gurupadukam.com.'}
+                    </div>
+                  </div>
+                  {!isEmailVerified && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => resendVerificationEmail()}
+                        className="px-3.5 py-2 bg-maroon text-gold-pale font-bold rounded hover:bg-maroon-md"
+                      >
+                        Verify Email
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => checkEmailVerificationStatus()}
+                        className="px-3 py-2 bg-white border border-maroon/40 text-maroon font-bold rounded hover:bg-maroon/5"
+                      >
+                        Confirm Verified
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+              <form onSubmit={handleSavePassword} className="space-y-6">
                 <h2 className="font-cinzel text-xl font-bold text-maroon border-b border-gold/20 pb-3">
                   {hasPw
                     ? (isTe ? 'పాస్‌వర్డ్ మార్చండి' : 'Change Password')
@@ -1046,6 +1080,7 @@ export const Profile: React.FC = () => {
                   </button>
                 </div>
               </form>
+              </div>
               );
             })()}
 

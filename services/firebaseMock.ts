@@ -78,6 +78,26 @@ export function getMainDomainActionSettings() {
   };
 }
 
+async function sendWithActionSettingsFallback(
+  fnWithSettings: (settings: { url: string; handleCodeInApp: boolean }) => Promise<void>,
+  fnDefault: () => Promise<void>
+): Promise<void> {
+  try {
+    await fnWithSettings(getMainDomainActionSettings());
+  } catch (err: any) {
+    const code = err?.code || '';
+    if (
+      code === 'auth/unauthorized-continue-uri' ||
+      code === 'auth/invalid-continue-uri' ||
+      code === 'auth/missing-continue-uri'
+    ) {
+      await fnDefault();
+      return;
+    }
+    throw err;
+  }
+}
+
 export type GoogleSignInOutcome =
   | { status: 'authenticated'; user: User }
   | {
@@ -492,7 +512,10 @@ export const firebaseMock = {
         await setDoc(doc(db, 'users', uid), stripUndefined(user)).catch((err) => {
           console.warn('[Firestore] Could not save user doc during register:', err);
         });
-        await sendEmailVerification(cred.user, getMainDomainActionSettings()).catch((err) => {
+        await sendWithActionSettingsFallback(
+          (settings) => sendEmailVerification(cred.user, settings),
+          () => sendEmailVerification(cred.user)
+        ).catch((err) => {
           console.warn('[Firebase Auth] Verification email dispatch skipped:', err?.message);
         });
 
@@ -725,7 +748,10 @@ export const firebaseMock = {
         throw new Error('Please enter a valid email address first.');
       }
       try {
-        await sendPasswordResetEmail(auth, cleanEmail, getMainDomainActionSettings());
+        await sendWithActionSettingsFallback(
+          (settings) => sendPasswordResetEmail(auth!, cleanEmail, settings),
+          () => sendPasswordResetEmail(auth!, cleanEmail)
+        );
       } catch (err) {
         throw mapFirebaseAuthError(err);
       }
@@ -733,12 +759,30 @@ export const firebaseMock = {
 
     async resendVerificationEmail(): Promise<void> {
       if (!isFirebaseConfigured || !auth?.currentUser) {
-        throw new Error('Please sign in first to resend your verification email.');
+        throw new Error('Please sign in first to send a verification email.');
       }
       try {
-        await sendEmailVerification(auth.currentUser, getMainDomainActionSettings());
+        await sendWithActionSettingsFallback(
+          (settings) => sendEmailVerification(auth!.currentUser!, settings),
+          () => sendEmailVerification(auth!.currentUser!)
+        );
       } catch (err) {
         throw mapFirebaseAuthError(err);
+      }
+    },
+
+    isCurrentUserEmailVerified(): boolean {
+      if (!isFirebaseConfigured || !auth?.currentUser) return false;
+      return Boolean(auth.currentUser.emailVerified);
+    },
+
+    async checkEmailVerificationStatus(): Promise<boolean> {
+      if (!isFirebaseConfigured || !auth?.currentUser) return false;
+      try {
+        await auth.currentUser.reload();
+        return Boolean(auth.currentUser.emailVerified);
+      } catch {
+        return false;
       }
     },
 

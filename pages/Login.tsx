@@ -19,6 +19,9 @@ export const Login: React.FC = () => {
     signInWithGoogle,
     completeGoogleRegistration,
     resetPassword,
+    resendVerificationEmail,
+    checkEmailVerificationStatus,
+    isEmailVerified,
     register,
     isAuthLoading,
     language,
@@ -61,6 +64,11 @@ export const Login: React.FC = () => {
   const [startingKycPay, setStartingKycPay] = useState(false);
   const [googleOnboarding, setGoogleOnboarding] = useState<{ uid: string; email: string } | null>(null);
   const [resetSentTo, setResetSentTo] = useState<string | null>(null);
+  const [showResetBox, setShowResetBox] = useState(false);
+  const [resetEmailInput, setResetEmailInput] = useState('');
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [sendingVerify, setSendingVerify] = useState(false);
 
   const isTe = language === 'te';
 
@@ -206,16 +214,24 @@ export const Login: React.FC = () => {
   };
 
   const handleForgotPassword = async () => {
-    const cleanEmail = loginEmail.trim();
+    const cleanEmail = (resetEmailInput || loginEmail).trim();
     if (!cleanEmail) {
-      addToast('Enter your registered email first to receive a reset link.', 'info');
+      setShowResetBox(true);
+      setResetError('Enter your registered email address below and click Send Reset Link.');
       return;
     }
+    setSendingReset(true);
+    setResetError(null);
     try {
       await resetPassword(cleanEmail);
       setResetSentTo(cleanEmail);
-    } catch {
+      setShowResetBox(true);
+    } catch (err: any) {
       setResetSentTo(null);
+      setShowResetBox(true);
+      setResetError(err?.message || 'Unable to send password reset email.');
+    } finally {
+      setSendingReset(false);
     }
   };
 
@@ -308,6 +324,48 @@ export const Login: React.FC = () => {
           <p className="text-sm text-text-md">
             You are signed in as <strong>{user.name}</strong> ({user.email}).
           </p>
+
+          {/* Email Verification Status & Explicit Verify Button */}
+          <div className={`p-3.5 rounded-lg border text-left text-xs space-y-2 ${
+            isEmailVerified ? 'bg-green-50 border-green-200 text-green-900' : 'bg-amber-50 border-amber-300 text-amber-950'
+          }`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold">
+                {isEmailVerified ? '✓ Email Verified' : '⚠ Email Verification Pending'}
+              </span>
+              {!isEmailVerified && (
+                <button
+                  type="button"
+                  onClick={() => checkEmailVerificationStatus()}
+                  className="text-[11px] font-bold text-maroon underline"
+                >
+                  Confirm Verified
+                </button>
+              )}
+            </div>
+            {!isEmailVerified && (
+              <>
+                <p className="text-[11px]">
+                  Click <strong>Verify Email</strong> to receive a Firebase verification link on <strong>{user.email}</strong> (gurupadukam.com).
+                </p>
+                <button
+                  type="button"
+                  disabled={sendingVerify}
+                  onClick={async () => {
+                    setSendingVerify(true);
+                    try {
+                      await resendVerificationEmail();
+                    } finally {
+                      setSendingVerify(false);
+                    }
+                  }}
+                  className="w-full py-2 bg-maroon text-gold-pale font-bold text-xs uppercase tracking-wider rounded hover:bg-maroon-md disabled:opacity-60"
+                >
+                  {sendingVerify ? 'Sending Verification Email...' : 'Verify Email (Send Link)'}
+                </button>
+              </>
+            )}
+          </div>
           <div className="flex flex-col gap-2 pt-2">
             <Link to="/profile" className="py-2.5 px-4 bg-maroon text-gold-pale font-bold text-xs uppercase tracking-wider rounded hover:bg-maroon-md">
               Go to Profile
@@ -878,10 +936,14 @@ export const Login: React.FC = () => {
             <div className="flex items-center justify-between text-xs pt-1">
               <button
                 type="button"
-                onClick={handleForgotPassword}
+                onClick={() => {
+                  setResetEmailInput(loginEmail);
+                  setShowResetBox(v => !v);
+                  setResetError(null);
+                }}
                 className="text-maroon font-semibold hover:underline"
               >
-                {isTe ? 'పాస్‌వర్డ్ మర్చిపోయారా?' : 'Forgot Password?'}
+                {isTe ? 'పాస్‌వర్డ్ మర్చిపోయారా?' : 'Forgot / Reset Password?'}
               </button>
               {role === 'admin' && (
                 <span className="text-[11px] text-amber-800 font-semibold">
@@ -890,9 +952,42 @@ export const Login: React.FC = () => {
               )}
             </div>
 
-            {resetSentTo && (
-              <div className="bg-green-50 border border-green-200 text-green-900 rounded px-3 py-2 text-xs">
-                Password reset link sent to <strong>{resetSentTo}</strong> (redirecting to gurupadukam.com). Check Inbox &amp; Spam folder.
+            {showResetBox && (
+              <div className="bg-amber-50/90 border border-gold/40 rounded-lg p-3.5 space-y-2.5 text-xs">
+                <div className="font-bold text-maroon uppercase tracking-wider text-[11px]">
+                  Reset Password (gurupadukam.com)
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="email"
+                    value={resetEmailInput}
+                    onChange={e => setResetEmailInput(e.target.value)}
+                    placeholder="Enter your registered email"
+                    className="flex-1 px-3 py-2 bg-white border border-gold/40 rounded text-xs focus:outline-none focus:border-maroon"
+                  />
+                  <button
+                    type="button"
+                    disabled={sendingReset}
+                    onClick={handleForgotPassword}
+                    className="px-4 py-2 bg-maroon text-gold-pale font-bold rounded hover:bg-maroon-md disabled:opacity-60 shrink-0"
+                  >
+                    {sendingReset ? 'Sending...' : 'Send Reset Link'}
+                  </button>
+                </div>
+                {resetSentTo && (
+                  <div className="bg-green-50 border border-green-200 text-green-900 rounded px-3 py-2 text-[11px]">
+                    Reset link sent to <strong>{resetSentTo}</strong>. Check Inbox &amp; Spam.
+                    <br />
+                    <span className="text-[10px] text-green-800">
+                      Note: Accounts created via <strong>Google Sign-In</strong> do not use a password unless linked in Profile → Security. If no email arrives in Inbox/Spam, verify Custom SMTP credentials in Firebase Console → Authentication → Templates.
+                    </span>
+                  </div>
+                )}
+                {resetError && (
+                  <div className="bg-red-50 border border-red-200 text-red-900 rounded px-3 py-2 text-[11px]">
+                    {resetError}
+                  </div>
+                )}
               </div>
             )}
 
