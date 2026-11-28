@@ -120,10 +120,10 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-cream/45 border-t border-gold/10 pt-6">
+        <div className="mt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-cream/85 border-t border-gold/10 pt-6">
           <div className="flex flex-col md:flex-row items-center gap-3">
             <span>© {year} Guru Padukam (gurupadukam.com). All rights reserved.</span>
-            <div className="flex gap-3 text-cream/60">
+            <div className="flex gap-3 text-cream/85">
               <Link to="/privacy" className="hover:text-gold transition-colors">Privacy</Link>
               <span>·</span>
               <Link to="/terms" className="hover:text-gold transition-colors">Terms</Link>

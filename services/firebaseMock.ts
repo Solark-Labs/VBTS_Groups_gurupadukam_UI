@@ -47,6 +47,9 @@ const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 function mapFirebaseAuthError(err: any): Error {
   const code = err?.code || '';
+  if (code) {
+    console.error('[Firebase Auth Error]', code, err?.message);
+  }
   if (code === 'auth/configuration-not-found') {
     return new Error(
       'Firebase Authentication is not enabled yet. In Firebase Console → Authentication → click "Get Started" and enable Email/Password & Google Sign-In.'

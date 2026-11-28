@@ -398,6 +398,10 @@ export const Login: React.FC = () => {
             <img
               src="/logo.png"
               alt="Guru Padukam"
+              fetchPriority="high"
+              loading="eager"
+              width={64}
+              height={64}
               className="w-16 h-16 mx-auto rounded-full border-2 border-gold/60 bg-cream object-cover p-0.5 shadow-md"
             />
           </div>
