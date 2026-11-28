@@ -349,7 +349,9 @@ export const firebaseMock = {
           notifications: { email: true, sms: true, push: true },
         };
 
-        await setDoc(doc(db, 'users', uid), user);
+        await setDoc(doc(db, 'users', uid), user).catch((err) => {
+          console.warn('[Firestore] Could not save user doc during register:', err);
+        });
 
         if (safeRole === 'purohit' && data.kycVerified) {
           const purohitRecord: Purohit = {
@@ -371,7 +373,7 @@ export const firebaseMock = {
             completedPoojas: 0,
             bio: `${data.vedicSampradaya || 'Vedic Scholar'} · Aadhaar + ₹1 KYC verified on Guru Padukam.`,
           };
-          await setDoc(doc(db, 'purohits', purohitRecord.id), purohitRecord, { merge: true });
+          await setDoc(doc(db, 'purohits', purohitRecord.id), purohitRecord, { merge: true }).catch(() => {});
         }
 
         return user;
