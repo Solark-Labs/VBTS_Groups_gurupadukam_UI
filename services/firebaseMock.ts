@@ -51,6 +51,22 @@ import { getApiBaseUrl } from './paymentService';
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefined(item)) as unknown as T;
+  }
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    const clean: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (v !== undefined) {
+        clean[k] = stripUndefined(v);
+      }
+    }
+    return clean as T;
+  }
+  return value;
+}
+
 export function getMainDomainActionSettings() {
   const origin =
     typeof window !== 'undefined' && window.location.hostname === 'localhost'
@@ -182,7 +198,7 @@ async function writeCollectionItem<T extends { id: string }>(
 ): Promise<void> {
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, colName, item.id), item, { merge: true });
+      await setDoc(doc(db, colName, item.id), stripUndefined(item), { merge: true });
     } catch (err) {
       console.warn(`[Firestore] Failed to write ${colName}/${item.id}:`, err);
     }
@@ -206,7 +222,7 @@ async function syncCollectionList<T extends { id: string }>(
     try {
       const batch = writeBatch(firestoreDb);
       items.forEach((item) => {
-        batch.set(doc(firestoreDb, colName, item.id), item, { merge: true });
+        batch.set(doc(firestoreDb, colName, item.id), stripUndefined(item), { merge: true });
       });
       await batch.commit();
     } catch (err) {
@@ -262,7 +278,7 @@ async function checkGoogleAccountStatus(fbUser: FirebaseAuthUser): Promise<Googl
             Boolean(merged.address && merged.address.trim().length > 0) &&
             Boolean(merged.acceptedRolePolicyAt));
         if (hasRequired) {
-          await setDoc(userRef, merged, { merge: true }).catch(() => {});
+          await setDoc(userRef, stripUndefined(merged), { merge: true }).catch(() => {});
           return { status: 'authenticated', user: merged };
         }
       }
@@ -279,7 +295,7 @@ async function checkGoogleAccountStatus(fbUser: FirebaseAuthUser): Promise<Googl
           createdAt: new Date().toISOString(),
           notifications: { email: true, sms: true, push: true },
         };
-        await setDoc(userRef, adminUser, { merge: true }).catch(() => {});
+        await setDoc(userRef, stripUndefined(adminUser), { merge: true }).catch(() => {});
         return { status: 'authenticated', user: adminUser };
       }
     } catch (err: any) {
@@ -380,7 +396,7 @@ export const firebaseMock = {
         notifications: { email: true, sms: true, push: true },
       };
 
-      await setDoc(doc(db, 'users', uid), user, { merge: true });
+      await setDoc(doc(db, 'users', uid), stripUndefined(user), { merge: true });
 
       if (safeRole === 'purohit' && data.kycVerified) {
         const purohitRecord: Purohit = {
@@ -407,7 +423,7 @@ export const firebaseMock = {
           completedPoojas: 0,
           bio: `${data.vedicSampradaya || 'Vedic Scholar'} · Verified Vedic Purohit offering punctual, authentic ceremonies with transparent direct Dakshina.`,
         };
-        await setDoc(doc(db, 'purohits', purohitRecord.id), purohitRecord, { merge: true });
+        await setDoc(doc(db, 'purohits', purohitRecord.id), stripUndefined(purohitRecord), { merge: true });
       }
 
       return user;
@@ -473,7 +489,7 @@ export const firebaseMock = {
           notifications: { email: true, sms: true, push: true },
         };
 
-        await setDoc(doc(db, 'users', uid), user).catch((err) => {
+        await setDoc(doc(db, 'users', uid), stripUndefined(user)).catch((err) => {
           console.warn('[Firestore] Could not save user doc during register:', err);
         });
         await sendEmailVerification(cred.user, getMainDomainActionSettings()).catch((err) => {
@@ -500,7 +516,7 @@ export const firebaseMock = {
             completedPoojas: 0,
             bio: `${data.vedicSampradaya || 'Vedic Scholar'} · Aadhaar + ₹1 KYC verified on Guru Padukam.`,
           };
-          await setDoc(doc(db, 'purohits', purohitRecord.id), purohitRecord, { merge: true }).catch(() => {});
+          await setDoc(doc(db, 'purohits', purohitRecord.id), stripUndefined(purohitRecord), { merge: true }).catch(() => {});
         }
 
         return user;
@@ -784,7 +800,7 @@ export const firebaseMock = {
       if (isFirebaseConfigured && db) {
         // Never allow client updateUser to escalate role to 'admin'
         const { role, ...safeFields } = updatedUser;
-        await setDoc(doc(db, 'users', user.id), safeFields, { merge: true });
+        await setDoc(doc(db, 'users', user.id), stripUndefined(safeFields), { merge: true });
       }
 
       const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
