@@ -10,6 +10,7 @@ import { PAN_INDIA_LANGUAGES, LanguageCode, getLanguageMeta } from '../i18n/lang
 import { BRAND_CONTACT } from '../constants';
 import { getBookingCancellationPolicy } from '../utils/bookingRules';
 import { Booking, AparaBooking, Order } from '../types';
+import { firebaseMock } from '../services/firebaseMock';
 import { BookingDetailsModal } from '../components/BookingDetailsModal';
 import { InvoiceModal } from '../components/InvoiceModal';
 
@@ -960,31 +961,49 @@ export const Profile: React.FC = () => {
             )}
 
             {/* Security */}
-            {activeTab === 'security' && (
+            {activeTab === 'security' && (() => {
+              const hasPw = firebaseMock.auth.hasPasswordProvider();
+              return (
               <form onSubmit={handleSavePassword} className="space-y-6 animate-slide-up">
                 <h2 className="font-cinzel text-xl font-bold text-maroon border-b border-gold/20 pb-3">
-                  {isTe ? 'పాస్‌వర్డ్ మార్చండి' : 'Change Password'}
+                  {hasPw
+                    ? (isTe ? 'పాస్‌వర్డ్ మార్చండి' : 'Change Password')
+                    : (isTe ? 'ఇమెయిల్ సైన్-ఇన్ కోసం పాస్‌వర్డ్ సెట్ చేయండి' : 'Set Password for Email Sign-In')}
                 </h2>
+                {!hasPw && (
+                  <p className="text-xs text-text-md">
+                    {isTe
+                      ? 'మీరు Google తో సైన్ ఇన్ చేశారు. ఇమెయిల్ & పాస్‌వర్డ్‌తో కూడా లాగిన్ అవ్వడానికి దిగువన పాస్‌వర్డ్‌ను సెట్ చేయండి.'
+                      : 'You signed in with Google. Set a password below so you can also sign in with your email and password.'}
+                  </p>
+                )}
 
                 <div className="max-w-md space-y-5">
+                  {hasPw && (
+                    <div>
+                      <label htmlFor="profile-current-password" className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">
+                        {isTe ? 'ప్రస్తుత పాస్‌వర్డ్' : 'Current Password'}
+                      </label>
+                      <input
+                        id="profile-current-password"
+                        aria-label="Current Password"
+                        type="password"
+                        value={currentPassword}
+                        onChange={e => setCurrentPassword(e.target.value)}
+                        required
+                        className="w-full px-4 py-2.5 border border-gold/30 focus:outline-none focus:border-maroon bg-cream/10 rounded"
+                      />
+                    </div>
+                  )}
                   <div>
-                    <label htmlFor="profile-current-password" className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Current Password</label>
-                    <input
-                      id="profile-current-password"
-                      aria-label="Current Password"
-                      type="password"
-                      value={currentPassword}
-                      onChange={e => setCurrentPassword(e.target.value)}
-                      required
-                      className="w-full px-4 py-2.5 border border-gold/30 focus:outline-none focus:border-maroon bg-cream/10 rounded"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="profile-new-password" className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">New Password</label>
+                    <label htmlFor="profile-new-password" className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">
+                      {isTe ? 'కొత్త పాస్‌వర్డ్' : 'New Password'}
+                    </label>
                     <input
                       id="profile-new-password"
                       aria-label="New Password"
                       type="password"
+                      minLength={6}
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       required
@@ -992,11 +1011,14 @@ export const Profile: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label htmlFor="profile-confirm-password" className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">Confirm New Password</label>
+                    <label htmlFor="profile-confirm-password" className="block font-cinzel text-xs tracking-widest uppercase text-text-md mb-2">
+                      {isTe ? 'కొత్త పాస్‌వర్డ్ నిర్ధారించండి' : 'Confirm New Password'}
+                    </label>
                     <input
                       id="profile-confirm-password"
                       aria-label="Confirm New Password"
                       type="password"
+                      minLength={6}
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       required
@@ -1010,11 +1032,12 @@ export const Profile: React.FC = () => {
                     type="submit"
                     className="bg-maroon text-gold-pale px-8 py-3 clip-btn hover:bg-maroon-md transition-colors flex items-center gap-2 font-cinzel tracking-widest uppercase text-sm"
                   >
-                    <Lock size={16} /> Update Password
+                    <Lock size={16} /> {hasPw ? (isTe ? 'పాస్‌వర్డ్ అప్‌డేట్ చేయండి' : 'Update Password') : (isTe ? 'పాస్‌వర్డ్ సెట్ చేయండి' : 'Set Password')}
                   </button>
                 </div>
               </form>
-            )}
+              );
+            })()}
 
             {/* Notifications */}
             {activeTab === 'notifications' && (

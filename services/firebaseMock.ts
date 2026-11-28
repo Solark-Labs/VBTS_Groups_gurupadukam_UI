@@ -7,6 +7,10 @@ import {
   signOut,
   sendPasswordResetEmail,
   sendEmailVerification,
+  EmailAuthProvider,
+  linkWithCredential,
+  reauthenticateWithCredential,
+  updatePassword,
   User as FirebaseAuthUser,
 } from 'firebase/auth';
 import {
@@ -540,7 +544,32 @@ export const firebaseMock = {
       return user;
     },
 
+    hasPasswordProvider(): boolean {
+      if (isFirebaseConfigured && auth?.currentUser) {
+        return auth.currentUser.providerData.some(p => p.providerId === 'password');
+      }
+      return true;
+    },
+
     async changePassword(email: string, currentPassword: string, newPassword: string): Promise<void> {
+      if (isFirebaseConfigured && auth?.currentUser) {
+        const fbUser = auth.currentUser;
+        const hasPw = fbUser.providerData.some(p => p.providerId === 'password');
+        if (!hasPw) {
+          const userEmail = fbUser.email || email.trim().toLowerCase();
+          const cred = EmailAuthProvider.credential(userEmail, newPassword);
+          await linkWithCredential(fbUser, cred);
+          return;
+        }
+        if (!currentPassword) {
+          throw new Error('Current password is required.');
+        }
+        const cred = EmailAuthProvider.credential(fbUser.email || email.trim().toLowerCase(), currentPassword);
+        await reauthenticateWithCredential(fbUser, cred);
+        await updatePassword(fbUser, newPassword);
+        return;
+      }
+
       await delay(300);
       const normalizedEmail = email.trim().toLowerCase();
       const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
