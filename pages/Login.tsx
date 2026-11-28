@@ -78,6 +78,7 @@ export const Login: React.FC = () => {
   const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
   const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
   const [emailOtpMsg, setEmailOtpMsg] = useState<string | null>(null);
+  const [useFirebaseLinkVerify, setUseFirebaseLinkVerify] = useState(true);
   // Pre-password Sign In Email Existence Check
   const [loginEmailCheck, setLoginEmailCheck] = useState<{
     email: string;
@@ -293,9 +294,21 @@ export const Login: React.FC = () => {
         body: JSON.stringify({ email: cleanEmail }),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 503) {
+        // Backend SMTP is intentionally not set because user configured SMTP directly on Firebase Console
+        setUseFirebaseLinkVerify(true);
+        setEmailOtpSent(false);
+        setEmailOtpMsg(
+          isTe
+            ? 'SMTP Firebase లో సెట్ చేయబడింది — నమోదు పూర్తి చేసిన వెంటనే మీ ఇమెయిల్‌కు ధృవీకరణ లింక్ పంపబడుతుంది.'
+            : 'Using Firebase Console SMTP — submit registration below and Firebase will send your verification link right away.'
+        );
+        return;
+      }
       if (!res.ok || !data.success) {
         throw new Error(data.message || `Could not send verification code (HTTP ${res.status}).`);
       }
+      setUseFirebaseLinkVerify(false);
       if (data.otpToken) setEmailOtpToken(data.otpToken);
       setEmailOtpSent(true);
       addToast(
@@ -350,7 +363,7 @@ export const Login: React.FC = () => {
       setRole('user');
       return;
     }
-    if (!googleOnboarding && !emailVerified) {
+    if (!googleOnboarding && !useFirebaseLinkVerify && !emailVerified) {
       addToast(
         isTe
           ? 'దయచేసి ముందుగా "Verify Email" నొక్కి 6-అంకెల OTP తో మీ ఇమెయిల్‌ను ధృవీకరించండి.'
@@ -422,7 +435,12 @@ export const Login: React.FC = () => {
         : await register(payload);
 
       setGoogleOnboarding(null);
-      navigate(registeredUser.role === 'purohit' ? '/purohit-dashboard' : '/');
+      if (googleOnboarding || registeredUser.role === 'purohit' || !isFirebaseConfigured) {
+        navigate(registeredUser.role === 'purohit' ? '/purohit-dashboard' : '/');
+      } else {
+        // Stay on /login so user sees the Verify Email card & Verify button right after Firebase registration
+        addToast('Registration complete! Check Inbox/Spam for your Firebase verification link, then click Verify.', 'success');
+      }
     } catch (err: any) {
       if (String(err?.message || '').toLowerCase().includes('already')) {
         setLoginEmail(regEmail.trim());
@@ -452,33 +470,47 @@ export const Login: React.FC = () => {
               {!isEmailVerified && (
                 <button
                   type="button"
-                  onClick={() => checkEmailVerificationStatus()}
-                  className="text-[11px] font-bold text-maroon underline"
+                  onClick={async () => {
+                    const ok = await checkEmailVerificationStatus();
+                    if (ok) {
+                      navigate(user.role === 'purohit' ? '/purohit-dashboard' : '/');
+                    }
+                  }}
+                  className="px-3 py-1 bg-green-700 text-white text-[11px] font-bold rounded hover:bg-green-800"
                 >
-                  Confirm Verified
+                  Verify (I Clicked Link)
                 </button>
               )}
             </div>
             {!isEmailVerified && (
               <>
                 <p className="text-[11px]">
-                  Click <strong>Verify Email</strong> to receive a Firebase verification link on <strong>{user.email}</strong> (gurupadukam.com).
+                  Click <strong>Resend Verification Email</strong> to send a Firebase verification link to <strong>{user.email}</strong> (gurupadukam.com), then click <strong>Verify</strong>.
                 </p>
-                <button
-                  type="button"
-                  disabled={sendingVerify}
-                  onClick={async () => {
-                    setSendingVerify(true);
-                    try {
-                      await resendVerificationEmail();
-                    } finally {
-                      setSendingVerify(false);
-                    }
-                  }}
-                  className="w-full py-2 bg-maroon text-gold-pale font-bold text-xs uppercase tracking-wider rounded hover:bg-maroon-md disabled:opacity-60"
-                >
-                  {sendingVerify ? 'Sending Verification Email...' : 'Verify Email (Send Link)'}
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={sendingVerify}
+                    onClick={async () => {
+                      setSendingVerify(true);
+                      try {
+                        await resendVerificationEmail();
+                      } finally {
+                        setSendingVerify(false);
+                      }
+                    }}
+                    className="w-full py-2 bg-maroon text-gold-pale font-bold text-xs uppercase tracking-wider rounded hover:bg-maroon-md disabled:opacity-60"
+                  >
+                    {sendingVerify ? 'Sending...' : 'Send / Resend Email'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(user.role === 'purohit' ? '/purohit-dashboard' : '/')}
+                    className="w-full py-2 bg-white border border-gold/50 text-maroon font-bold text-xs uppercase tracking-wider rounded hover:bg-gold/10"
+                  >
+                    Continue to App →
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -766,7 +798,9 @@ export const Login: React.FC = () => {
                 )}
 
                 {emailOtpMsg && (
-                  <div className="mt-1.5 text-[11px] bg-red-50 border border-red-200 text-red-900 rounded px-2.5 py-1.5">
+                  <div className={`mt-1.5 text-[11px] rounded px-2.5 py-1.5 border ${
+                    useFirebaseLinkVerify ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-red-50 border-red-200 text-red-900'
+                  }`}>
                     {emailOtpMsg}
                   </div>
                 )}
@@ -787,8 +821,8 @@ export const Login: React.FC = () => {
                     {emailVerified
                       ? 'Email verified via 6-digit OTP.'
                       : isTe
-                      ? 'ఇమెయిల్ ధృవీకరించడానికి "Verify Email" నొక్కి 6-అంకెల కోడ్ నమోదు చేయండి.'
-                      : 'Click "Verify Email" to receive & verify a 6-digit OTP code (gurupadukam.com).'}
+                      ? 'నమోదు తర్వాత Firebase SMTP ద్వారా మీ ఇమెయిల్‌కు ధృవీకరణ లింక్ పంపబడుతుంది.'
+                      : 'Firebase SMTP will send your verification link on registration (or click Verify Email for OTP).'}
                   </p>
                 )}
               </div>
