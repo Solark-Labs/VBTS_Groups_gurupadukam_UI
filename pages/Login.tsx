@@ -17,6 +17,7 @@ export const Login: React.FC = () => {
     login,
     adminLogin,
     signInWithGoogle,
+    completeGoogleRegistration,
     resetPassword,
     register,
     isAuthLoading,
@@ -58,6 +59,8 @@ export const Login: React.FC = () => {
   const [kycRupeeReceipt, setKycRupeeReceipt] = useState<{ cfOrderId: string; cfPaymentId: string } | null>(null);
   const [pendingKycOrder, setPendingKycOrder] = useState<CashfreeOrderResponse | null>(null);
   const [startingKycPay, setStartingKycPay] = useState(false);
+  const [googleOnboarding, setGoogleOnboarding] = useState<{ uid: string; email: string } | null>(null);
+  const [resetSentTo, setResetSentTo] = useState<string | null>(null);
 
   const isTe = language === 'te';
 
@@ -175,30 +178,44 @@ export const Login: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      const signedInUser = await signInWithGoogle();
-      if (signedInUser.role === 'admin') {
-        navigate('/admin');
-      } else if (signedInUser.role === 'purohit') {
-        navigate('/purohit-dashboard');
-      } else if (!signedInUser.phone || !signedInUser.address) {
-        navigate('/profile');
-      } else {
-        navigate('/');
+      const outcome = await signInWithGoogle();
+      if (outcome.status === 'authenticated') {
+        const signedInUser = outcome.user;
+        if (signedInUser.role === 'admin') {
+          navigate('/admin');
+        } else if (signedInUser.role === 'purohit') {
+          navigate('/purohit-dashboard');
+        } else {
+          navigate('/');
+        }
+        return;
       }
+
+      // New Google user (Devotee or Purohit): open Register form pre-filled and enforce ALL required fields + checkboxes
+      const gp = outcome.googleProfile;
+      setGoogleOnboarding({ uid: gp.uid, email: gp.email });
+      setMode('register');
+      if (role === 'admin') setRole('user');
+      if (gp.name) setRegName(gp.name);
+      if (gp.email) setRegEmail(gp.email);
+      if (gp.phone) setRegPhone(gp.phone);
+      if (gp.photoURL) setRegProfileImage(gp.photoURL);
     } catch {
       // Toast already displayed
     }
   };
 
   const handleForgotPassword = async () => {
-    if (!loginEmail.trim()) {
+    const cleanEmail = loginEmail.trim();
+    if (!cleanEmail) {
       addToast('Enter your registered email first to receive a reset link.', 'info');
       return;
     }
     try {
-      await resetPassword(loginEmail);
+      await resetPassword(cleanEmail);
+      setResetSentTo(cleanEmail);
     } catch {
-      // Toast already displayed
+      setResetSentTo(null);
     }
   };
 
@@ -210,7 +227,7 @@ export const Login: React.FC = () => {
       setRole('user');
       return;
     }
-    if (!regPassword || regPassword.length < 6) {
+    if (!googleOnboarding && (!regPassword || regPassword.length < 6)) {
       addToast('Please choose a password with at least 6 characters.', 'error');
       return;
     }
@@ -222,11 +239,6 @@ export const Login: React.FC = () => {
     const cleanRegPhone = regPhone.replace(/\D/g, '');
     if (!/^[6-9]\d{9}$/.test(cleanRegPhone)) {
       addToast('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.', 'error');
-      return;
-    }
-
-    if (regPassword.length < 6) {
-      addToast('Password must be at least 6 characters long.', 'error');
       return;
     }
 
@@ -244,35 +256,40 @@ export const Login: React.FC = () => {
       return;
     }
 
-    try {
-      const registeredUser = await register({
-        name: regName,
-        email: regEmail,
-        phone: regPhone,
-        address: regAddress,
-        city: regCity,
-        pincode: regPincode,
-        password: regPassword,
-        role,
-        preferredLanguage: regLanguage,
-        profileImage: regProfileImage,
-        ...(role === 'purohit' && kycRupeeReceipt
-          ? {
-              kycVerified: true,
-              kycRupeePaid: true,
-              kycCfOrderId: kycRupeeReceipt.cfOrderId,
-              kycCfPaymentId: kycRupeeReceipt.cfPaymentId,
-              kycVerifiedAt: new Date().toISOString(),
-              readyToShowVerification: readyToShowId,
-              vedicSampradaya: vedicSampradaya.trim() || 'Smarttha / Krishna Yajurveda',
-              experienceYears: Number(experienceYears) || 5,
-              acceptedRolePolicyAt: new Date().toISOString(),
-            }
-          : {
-              acceptedRolePolicyAt: new Date().toISOString(),
-            }),
-      });
+    const payload = {
+      name: regName,
+      email: regEmail,
+      phone: regPhone,
+      address: regAddress,
+      city: regCity,
+      pincode: regPincode,
+      ...(googleOnboarding ? {} : { password: regPassword }),
+      role,
+      preferredLanguage: regLanguage,
+      profileImage: regProfileImage,
+      ...(role === 'purohit' && kycRupeeReceipt
+        ? {
+            kycVerified: true,
+            kycRupeePaid: true,
+            kycCfOrderId: kycRupeeReceipt.cfOrderId,
+            kycCfPaymentId: kycRupeeReceipt.cfPaymentId,
+            kycVerifiedAt: new Date().toISOString(),
+            readyToShowVerification: readyToShowId,
+            vedicSampradaya: vedicSampradaya.trim() || 'Smarttha / Krishna Yajurveda',
+            experienceYears: Number(experienceYears) || 5,
+            acceptedRolePolicyAt: new Date().toISOString(),
+          }
+        : {
+            acceptedRolePolicyAt: new Date().toISOString(),
+          }),
+    };
 
+    try {
+      const registeredUser = googleOnboarding
+        ? await completeGoogleRegistration(googleOnboarding.uid, payload)
+        : await register(payload);
+
+      setGoogleOnboarding(null);
       navigate(registeredUser.role === 'purohit' ? '/purohit-dashboard' : '/');
     } catch (err: any) {
       if (String(err?.message || '').toLowerCase().includes('already')) {
@@ -509,17 +526,33 @@ export const Login: React.FC = () => {
                   <input
                     type="email"
                     required
+                    readOnly={Boolean(googleOnboarding)}
                     value={regEmail}
                     onChange={e => setRegEmail(e.target.value)}
                     placeholder={role === 'purohit' ? 'sharma.purohit@example.com' : 'devotee@example.com'}
-                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
+                    className={`w-full pl-9 pr-3 py-2.5 border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon ${
+                      googleOnboarding ? 'bg-green-50/70 font-medium' : 'bg-white'
+                    }`}
                   />
                 </div>
-                <p className="text-[10px] text-text-lt mt-1">
-                  {isTe
-                    ? 'నమోదు పూర్తయిన తర్వాత Firebase SMTP ద్వారా ధృవీకరణ ఇమెయిల్ పంపబడుతుంది.'
-                    : 'A verification email will be sent automatically via Firebase upon registration.'}
-                </p>
+                {googleOnboarding ? (
+                  <div className="mt-1 flex items-center justify-between text-[10px] text-green-800 font-semibold">
+                    <span>✓ Verified via Google ({googleOnboarding.email})</span>
+                    <button
+                      type="button"
+                      onClick={() => setGoogleOnboarding(null)}
+                      className="text-maroon underline"
+                    >
+                      Use Email Instead
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-text-lt mt-1">
+                    {isTe
+                      ? 'నమోదు పూర్తయిన తర్వాత Firebase SMTP ద్వారా ధృవీకరణ ఇమెయిల్ పంపబడుతుంది.'
+                      : 'A verification email will be sent automatically via Firebase (gurupadukam.com).'}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -591,23 +624,25 @@ export const Login: React.FC = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                {isTe ? 'పాస్‌వర్డ్ *' : 'Password *'}
-              </label>
-              <div className="relative">
-                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={regPassword}
-                  onChange={e => setRegPassword(e.target.value)}
-                  placeholder={isTe ? 'కనీసం 6 అక్షరాలు' : 'At least 6 characters'}
-                  className="w-full pl-9 pr-3 py-2.5 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
-                />
+            {!googleOnboarding && (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
+                  {isTe ? 'పాస్‌వర్డ్ *' : 'Password *'}
+                </label>
+                <div className="relative">
+                  <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={regPassword}
+                    onChange={e => setRegPassword(e.target.value)}
+                    placeholder={isTe ? 'కనీసం 6 అక్షరాలు' : 'At least 6 characters'}
+                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* ─── SEPARATE ROLE POLICIES & MANDATORY PUROHIT KYC ─── */}
             {role === 'purohit' ? (
@@ -616,10 +651,10 @@ export const Login: React.FC = () => {
                   <ShieldCheck size={20} className="text-maroon shrink-0 mt-0.5" />
                   <div>
                     <h3 className="font-cinzel text-xs font-bold uppercase tracking-wider text-maroon">
-                      Purohit Verification (Mandatory Aadhaar KYC + ₹1 Witness Payment)
+                      Purohit Verification (Vedic Credentials + ₹1 Witness Payment)
                     </h3>
                     <p className="text-[11px] text-amber-950 mt-0.5 leading-snug">
-                      Every Purohit on gurupadukam.com must verify Aadhaar identity and complete a nominal <strong>₹1 verification payment</strong> to witness bank/UPI credentials, and remain always ready to show verification to devotees or platform support.
+                      Every Purohit on gurupadukam.com completes a nominal <strong>₹1 verification payment</strong> to witness bank/UPI identity and keeps original government ID ready for in-person verification at ceremonies.
                     </p>
                   </div>
                 </div>
@@ -788,14 +823,16 @@ export const Login: React.FC = () => {
                 : t('completeRegistration')}
             </button>
 
-            {role === 'user' && isFirebaseConfigured && (
+            {!googleOnboarding && isFirebaseConfigured && (
               <button
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isAuthLoading}
                 className="w-full py-2.5 bg-white border border-gold/40 hover:bg-gold/10 text-maroon font-semibold text-xs uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2"
               >
-                {isTe ? 'Google తో కొనసాగండి (పేరు, ఇమెయిల్ & ఫోటో)' : 'Continue with Google (Auto-fill Name, Email & Photo)'}
+                {isTe
+                  ? `Google తో ${role === 'purohit' ? 'పురోహితుడిగా' : 'భక్తుడిగా'} నమోదు చేయండి`
+                  : `Sign up with Google as ${role === 'purohit' ? 'Purohit Partner' : 'Devotee'}`}
               </button>
             )}
           </form>
@@ -852,6 +889,12 @@ export const Login: React.FC = () => {
                 </span>
               )}
             </div>
+
+            {resetSentTo && (
+              <div className="bg-green-50 border border-green-200 text-green-900 rounded px-3 py-2 text-xs">
+                Password reset link sent to <strong>{resetSentTo}</strong> (redirecting to gurupadukam.com). Check Inbox &amp; Spam folder.
+              </div>
+            )}
 
             <button
               type="submit"

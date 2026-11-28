@@ -3,7 +3,7 @@ import {
   Product, CartItem, User, Order, ToastMessage, Purohit, Booking, WalletTransaction, BookingTimelineEvent,
   GeoLocation, AparaPeeta, AparaBooking, AparaReview, SupportTicket, EventNotification, RegistrationData
 } from '../types';
-import { firebaseMock } from '../services/firebaseMock';
+import { firebaseMock, GoogleSignInOutcome } from '../services/firebaseMock';
 import { auth, getFirebaseMessagingInstance, isFirebaseConfigured } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { getToken, onMessage } from 'firebase/messaging';
@@ -27,8 +27,10 @@ interface AppContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
   adminLogin: (email: string, password: string) => Promise<User>;
-  signInWithGoogle: () => Promise<User>;
+  signInWithGoogle: () => Promise<GoogleSignInOutcome>;
+  completeGoogleRegistration: (uid: string, data: RegistrationData) => Promise<User>;
   resetPassword: (email: string) => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
   register: (data: RegistrationData) => Promise<User>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -81,6 +83,7 @@ interface AppContextType {
   attachSamagriToBooking: (bookingId: string, samagriMode: Booking['samagriMode'], items?: string[]) => void;
   addPurohitReview: (purohitId: string, review: Omit<AparaReview, 'id' | 'date'>) => void;
   uploadPurohitPhoto: (purohitId: string, dataUrl: string) => void;
+  updatePurohitProfile: (purohitId: string, updates: Partial<Purohit>) => Promise<void>;
 
   // Apara Peetas & Bookings
   aparaPeetas: AparaPeeta[];
@@ -174,8 +177,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Load initial data from Firebase / local fallback + complete any Google redirect sign-in
   useEffect(() => {
     refreshCloudData();
-    firebaseMock.auth.handleGoogleRedirectResult().then((redirectUser) => {
-      if (redirectUser) {
+    firebaseMock.auth.handleGoogleRedirectResult().then((outcome) => {
+      if (outcome?.status === 'authenticated') {
+        const redirectUser = outcome.user;
         setUser(redirectUser);
         localStorage.setItem('gp_user', JSON.stringify(redirectUser));
         refreshCloudData();
@@ -188,6 +192,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setUser(null);
           localStorage.removeItem('gp_user');
           localStorage.removeItem('gp_auth_token');
+          return;
+        }
+        // Only enforce full session removal if user was already logged into a profile;
+        // newly authenticated Google users completing onboarding stay signed in to finish registration.
+        if (!localStorage.getItem('gp_user')) {
           return;
         }
         const verifiedUser = await firebaseMock.auth.verifyCurrentSession(fbUser);
@@ -275,25 +284,59 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const signInWithGoogle = async (): Promise<User> => {
+  const signInWithGoogle = async (): Promise<GoogleSignInOutcome> => {
     setIsAuthLoading(true);
     try {
-      const googleUser = await firebaseMock.auth.signInWithGoogle();
-      setUser(googleUser);
-      localStorage.setItem('gp_user', JSON.stringify(googleUser));
-      if (googleUser.preferredLanguage === 'te' || googleUser.preferredLanguage === 'en') {
-        setLanguageState(googleUser.preferredLanguage);
-        localStorage.setItem('gp_lang', googleUser.preferredLanguage);
-      }
-      refreshCloudData();
-      if (!googleUser.phone || !googleUser.address) {
-        addToast(`Welcome, ${googleUser.name}! Please add your 10-digit mobile & address in Profile for bookings.`, 'info');
-      } else {
+      const outcome = await firebaseMock.auth.signInWithGoogle();
+      if (outcome.status === 'authenticated') {
+        const googleUser = outcome.user;
+        setUser(googleUser);
+        localStorage.setItem('gp_user', JSON.stringify(googleUser));
+        if (googleUser.preferredLanguage === 'te' || googleUser.preferredLanguage === 'en') {
+          setLanguageState(googleUser.preferredLanguage);
+          localStorage.setItem('gp_lang', googleUser.preferredLanguage);
+        }
+        refreshCloudData();
         addToast(`Welcome back, ${googleUser.name}!`, 'success');
+      } else {
+        addToast('Google account verified! Please complete your required details & policy consent.', 'info');
       }
-      return googleUser;
+      return outcome;
     } catch (error: any) {
       addToast(error?.message || 'Google sign-in failed.', 'error');
+      throw error;
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const completeGoogleRegistration = async (uid: string, data: RegistrationData): Promise<User> => {
+    setIsAuthLoading(true);
+    try {
+      const completedUser = await firebaseMock.auth.completeGoogleRegistration(uid, data);
+      setUser(completedUser);
+      localStorage.setItem('gp_user', JSON.stringify(completedUser));
+      if (completedUser.preferredLanguage === 'te' || completedUser.preferredLanguage === 'en') {
+        setLanguageState(completedUser.preferredLanguage);
+        localStorage.setItem('gp_lang', completedUser.preferredLanguage);
+      }
+      if (completedUser.role === 'purohit' && completedUser.kycVerified && completedUser.kycCfPaymentId) {
+        syncPurohitKycToBackend({
+          email: completedUser.email,
+          name: completedUser.name,
+          phone: completedUser.phone,
+          aadhaarLast4: completedUser.aadhaarLast4 || '',
+          kycCfOrderId: completedUser.kycCfOrderId || '',
+          kycCfPaymentId: completedUser.kycCfPaymentId,
+          readyToShowVerification: Boolean(completedUser.readyToShowVerification),
+          vedicSampradaya: completedUser.vedicSampradaya,
+        });
+      }
+      refreshCloudData();
+      addToast(`Namaste ${completedUser.name}, your account is active!`, 'success');
+      return completedUser;
+    } catch (error: any) {
+      addToast(error?.message || 'Could not complete Google registration.', 'error');
       throw error;
     } finally {
       setIsAuthLoading(false);
@@ -303,9 +346,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const resetPassword = async (email: string): Promise<void> => {
     try {
       await firebaseMock.auth.resetPassword(email);
-      addToast('Password reset link sent to your email.', 'success');
+      addToast('Password reset link sent! Check your Inbox & Spam folder.', 'success');
     } catch (error: any) {
       addToast(error?.message || 'Unable to send password reset email.', 'error');
+      throw error;
+    }
+  };
+
+  const resendVerificationEmail = async (): Promise<void> => {
+    try {
+      await firebaseMock.auth.resendVerificationEmail();
+      addToast('Verification email sent via Firebase! Check Inbox & Spam.', 'success');
+    } catch (error: any) {
+      addToast(error?.message || 'Unable to send verification email.', 'error');
       throw error;
     }
   };
@@ -1194,15 +1247,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addToast('Thank you! Your review has been added to the Purohit profile.', 'success');
   };
 
-  const uploadPurohitPhoto = (purohitId: string, dataUrl: string) => {
+  const uploadPurohitPhoto = async (purohitId: string, dataUrl: string) => {
+    const storedUrl =
+      (await firebaseMock.storage.uploadDataUrl(`gallery/purohits/${purohitId}_${Date.now()}.jpg`, dataUrl)) ||
+      dataUrl;
     const updated = purohits.map(p =>
       p.id === purohitId
-        ? { ...p, galleryImages: [dataUrl, ...(p.galleryImages || [])] }
+        ? { ...p, galleryImages: [storedUrl, ...(p.galleryImages || [])] }
         : p
     );
     setPurohits(updated);
     firebaseMock.db.savePurohits(updated);
-    addToast('Photo uploaded to Purohit profile!', 'success');
+    addToast('Ceremony photo saved to Purohit gallery!', 'success');
+  };
+
+  const updatePurohitProfile = async (purohitId: string, updates: Partial<Purohit>) => {
+    const uploadedImage = updates.image
+      ? (await firebaseMock.storage.uploadDataUrl(`profiles/${purohitId}/avatar_${Date.now()}.jpg`, updates.image)) ||
+        updates.image
+      : undefined;
+    const cleanUpdates = uploadedImage ? { ...updates, image: uploadedImage } : updates;
+    const updated = purohits.map(p => (p.id === purohitId ? { ...p, ...cleanUpdates } : p));
+    setPurohits(updated);
+    await firebaseMock.db.savePurohits(updated);
+    addToast('Your public Purohit profile has been updated!', 'success');
   };
 
   // --- Cart ---
@@ -1291,13 +1359,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       language, setLanguage, t,
-      user, login, adminLogin, signInWithGoogle, resetPassword, register, logout, updateProfile, changePassword, isAdmin, isAuthLoading, seedCatalogToFirestore,
+      user, login, adminLogin, signInWithGoogle, completeGoogleRegistration, resetPassword, resendVerificationEmail, register, logout, updateProfile, changePassword, isAdmin, isAuthLoading, seedCatalogToFirestore,
       cart, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, isCartOpen, setCartOpen,
       products, updateProduct, addProduct, deleteProduct, orders, placeOrder, updateOrderStatus,
       walletBalance, walletTransactions, debitWalletForBooking,
       purohits, bookings, createBooking, updateBookingStatus, purohitRespondToBooking, rescheduleBooking,
       updateBookingNoteAndAdvance, requestDevoteeCancellation, markBookingWhatsappSent,
-      requestBookingHandoff, acceptBookingHandoff, attachSamagriToBooking, addPurohitReview, uploadPurohitPhoto,
+      requestBookingHandoff, acceptBookingHandoff, attachSamagriToBooking, addPurohitReview, uploadPurohitPhoto, updatePurohitProfile,
       aparaPeetas, aparaBookings, createAparaBooking, updateAparaBookingStatus, markAparaWhatsappSent,
       updateAparaFoodCustomization, addAparaReview, uploadAparaPhoto,
       tickets, createTicket, updateTicketStatus,

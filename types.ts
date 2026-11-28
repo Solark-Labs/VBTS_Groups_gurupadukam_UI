@@ -120,8 +120,15 @@ export interface ToastMessage {
 // ─── Purohits ─────────────────────────────────────────────────────────────────
 export interface Purohit {
   id: string;
+  userId?: string;
   name: string;
   nameTe: string;
+  headline?: string;
+  sampradaya?: string;
+  coverTheme?: 'maroon' | 'saffron' | 'temple' | 'emerald';
+  serviceAreas?: string[];
+  customTagline?: string;
+  shareHandle?: string;
   image: string;
   phone?: string;
   specializations: string[];

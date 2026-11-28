@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle, CheckCircle2, Clock, MapPin, Navigation, Package,
-  Phone, RefreshCw, ShieldAlert, ShieldCheck, BadgeCheck, Truck, UserCheck, ExternalLink, Sparkles, Camera, Upload, X
+  Phone, RefreshCw, ShieldAlert, ShieldCheck, BadgeCheck, Truck, UserCheck, ExternalLink, Sparkles, Camera, Upload, X,
+  Edit3, Share2, Copy, Check, Eye, Save
 } from 'lucide-react';
 import { useAppContext } from '../contexts/AppContext';
-import { Booking } from '../types';
+import { Booking, Purohit } from '../types';
 import { getBookingMapDirectionsUrl } from '../utils/whatsapp';
 import { BookingDetailsModal } from '../components/BookingDetailsModal';
 import { CashfreeOrderResponse, createCashfreeTokenOrder, syncPurohitKycToBackend } from '../services/paymentService';
@@ -25,11 +26,16 @@ export const PurohitDashboard: React.FC = () => {
     attachSamagriToBooking,
     uploadPurohitPhoto,
     uploadAparaPhoto,
+    updatePurohitProfile,
     addToast,
   } = useAppContext();
 
+  const [searchParams] = useSearchParams();
   const [activePurohitId, setActivePurohitId] = useState<string>(purohits[0]?.id || 'pr1');
   const [selectedAparaId, setSelectedAparaId] = useState<string>(aparaPeetas[0]?.id || 'ap1');
+  const [showCustomize, setShowCustomize] = useState<boolean>(() => searchParams.get('tab') === 'customize');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [copiedShare, setCopiedShare] = useState<'link' | 'insta' | null>(null);
   const [handoffBookingId, setHandoffBookingId] = useState<string | null>(null);
   const [handoffReason, setHandoffReason] = useState<string>('');
   const [muhurthamBookingId, setMuhurthamBookingId] = useState<string | null>(null);
@@ -71,21 +77,114 @@ export const PurohitDashboard: React.FC = () => {
   }
 
   const matchedOwnPurohit = purohits.find(
-    p => p.name.toLowerCase() === user.name.toLowerCase() || (user.phone && p.phone?.includes(user.phone))
+    p =>
+      p.userId === user.id ||
+      p.name.toLowerCase() === user.name.toLowerCase() ||
+      (user.phone && p.phone?.includes(user.phone))
   ) || purohits[0];
   const activePurohit = user.role === 'admin'
     ? (purohits.find(p => p.id === activePurohitId) || purohits[0])
     : matchedOwnPurohit;
 
+  const [editName, setEditName] = useState(activePurohit?.name || user.name || '');
+  const [editNameTe, setEditNameTe] = useState(activePurohit?.nameTe || '');
+  const [editHeadline, setEditHeadline] = useState(activePurohit?.headline || '');
+  const [editSampradaya, setEditSampradaya] = useState(activePurohit?.sampradaya || user.vedicSampradaya || '');
+  const [editBio, setEditBio] = useState(activePurohit?.bio || '');
+  const [editTagline, setEditTagline] = useState(activePurohit?.customTagline || '');
+  const [editLocation, setEditLocation] = useState(activePurohit?.location || user.city || '');
+  const [editLanguages, setEditLanguages] = useState((activePurohit?.languages || ['Telugu', 'English', 'Sanskrit']).join(', '));
+  const [editSpecs, setEditSpecs] = useState((activePurohit?.specializations || ['Griha Pravesh', 'Satyanarayana Vratham']).join(', '));
+  const [editExp, setEditExp] = useState(String(activePurohit?.experience || user.experienceYears || 5));
+  const [editAvail, setEditAvail] = useState<Purohit['availability']>(activePurohit?.availability || 'now');
+  const [editNextSlot, setEditNextSlot] = useState(activePurohit?.nextSlot || '');
+  const [editTheme, setEditTheme] = useState<NonNullable<Purohit['coverTheme']>>(activePurohit?.coverTheme || 'maroon');
+  const [editAvatar, setEditAvatar] = useState<string | undefined>(activePurohit?.image);
+
+  useEffect(() => {
+    if (!activePurohit) return;
+    setEditName(activePurohit.name);
+    setEditNameTe(activePurohit.nameTe || '');
+    setEditHeadline(activePurohit.headline || '');
+    setEditSampradaya(activePurohit.sampradaya || '');
+    setEditBio(activePurohit.bio || '');
+    setEditTagline(activePurohit.customTagline || '');
+    setEditLocation(activePurohit.location || '');
+    setEditLanguages((activePurohit.languages || []).join(', '));
+    setEditSpecs((activePurohit.specializations || []).join(', '));
+    setEditExp(String(activePurohit.experience || 5));
+    setEditAvail(activePurohit.availability);
+    setEditNextSlot(activePurohit.nextSlot || '');
+    setEditTheme(activePurohit.coverTheme || 'maroon');
+    setEditAvatar(activePurohit.image);
+  }, [activePurohit?.id]);
+
   // Bookings assigned to this purohit
-  const myBookings = bookings.filter(b => b.purohitId === activePurohit.id);
+  const myBookings = activePurohit ? bookings.filter(b => b.purohitId === activePurohit.id) : [];
 
   // Urgent locality handoffs popped for other purohits in the locality
   const localityHandoffs = bookings.filter(
     b =>
       b.handoffStatus === 'requested' &&
-      b.purohitId !== activePurohit.id
+      b.purohitId !== activePurohit?.id
   );
+
+  const publicProfileUrl = activePurohit ? `https://gurupadukam.com/#/purohits/${activePurohit.id}` : 'https://gurupadukam.com/#/purohits';
+
+  const handleSavePublicProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activePurohit) return;
+    setSavingProfile(true);
+    try {
+      await updatePurohitProfile(activePurohit.id, {
+        name: editName.trim() || activePurohit.name,
+        nameTe: editNameTe.trim() || activePurohit.nameTe,
+        headline: editHeadline.trim(),
+        sampradaya: editSampradaya.trim(),
+        bio: editBio.trim(),
+        customTagline: editTagline.trim(),
+        location: editLocation.trim() || activePurohit.location,
+        languages: editLanguages.split(',').map(s => s.trim()).filter(Boolean),
+        specializations: editSpecs.split(',').map(s => s.trim()).filter(Boolean),
+        experience: Number(editExp) || activePurohit.experience,
+        availability: editAvail,
+        nextSlot: editNextSlot.trim(),
+        coverTheme: editTheme,
+        ...(editAvatar ? { image: editAvatar } : {}),
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      addToast('Please upload a profile image under 2 MB.', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setEditAvatar(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const copyShareUrl = async (type: 'link' | 'insta') => {
+    const text =
+      type === 'insta'
+        ? `🙏 ${activePurohit?.name} — Verified Vedic Scholar on Guru Padukam\n✨ ${editHeadline || activePurohit?.specializations.slice(0, 3).join(' · ')}\n📍 ${editLocation}\n🪔 Book Directly @ ₹11 Token: ${publicProfileUrl}`
+        : publicProfileUrl;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedShare(type);
+      addToast(type === 'insta' ? 'Instagram Bio & Link copied!' : 'Profile URL copied!', 'success');
+      setTimeout(() => setCopiedShare(null), 2500);
+    } catch {
+      addToast(publicProfileUrl, 'info');
+    }
+  };
 
   const handleRequestHandoff = (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,6 +297,23 @@ export const PurohitDashboard: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {activePurohit && (
+              <>
+                <Link
+                  to={`/purohits/${activePurohit.id}`}
+                  className="inline-flex items-center gap-1.5 bg-white border border-gold/40 text-maroon text-xs font-bold uppercase tracking-wider px-3.5 py-2.5 rounded-sm hover:bg-gold/10 shadow-sm"
+                >
+                  <Eye size={14} /> View Public Page
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomize(v => !v)}
+                  className="inline-flex items-center gap-1.5 bg-gold/25 border border-gold text-maroon text-xs font-bold uppercase tracking-wider px-3.5 py-2.5 rounded-sm hover:bg-gold/40 shadow-sm"
+                >
+                  <Edit3 size={14} /> {showCustomize ? 'Hide Customizer' : 'Customize & Share Page'}
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => setShowVerificationCard(true)}
@@ -207,6 +323,139 @@ export const PurohitDashboard: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* ─── CUSTOMIZE PUBLIC PROFILE & INSTAGRAM/LINKEDIN SHARE STUDIO ─── */}
+        {showCustomize && activePurohit && (
+          <div className="bg-white border-2 border-gold/50 rounded-lg p-6 shadow-md space-y-5 animate-fade-in">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gold/20 pb-3">
+              <div>
+                <h2 className="font-cinzel text-sm font-bold uppercase tracking-wider text-maroon flex items-center gap-2">
+                  <Edit3 size={16} /> Customize Your Public Scholar Page &amp; Social Share Links
+                </h2>
+                <p className="text-xs text-text-md mt-0.5">
+                  Updates sync immediately to your public Guru Padukam link for Instagram Bio, LinkedIn &amp; WhatsApp sharing.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => copyShareUrl('link')}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-cream border border-gold/40 text-maroon text-xs font-bold rounded hover:bg-gold/10"
+                >
+                  {copiedShare === 'link' ? <Check size={13} className="text-green-700" /> : <Copy size={13} />}
+                  Copy Profile Link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyShareUrl('insta')}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white text-xs font-bold rounded"
+                >
+                  {copiedShare === 'insta' ? <Check size={13} /> : <Share2 size={13} />}
+                  Copy for Instagram Bio
+                </button>
+                <a
+                  href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(publicProfileUrl)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0A66C2] text-white text-xs font-bold rounded"
+                >
+                  <ExternalLink size={13} /> LinkedIn
+                </a>
+              </div>
+            </div>
+
+            <form onSubmit={handleSavePublicProfile} className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="md:col-span-2 flex flex-wrap items-center gap-4 bg-cream/60 p-3 rounded border border-gold/20">
+                <img
+                  src={editAvatar || '/logo.png'}
+                  alt={editName}
+                  className="w-16 h-16 rounded-xl object-cover border-2 border-gold shadow-sm"
+                />
+                <div className="space-y-1.5">
+                  <div className="font-bold text-maroon">Profile Portrait &amp; Cover Banner Theme</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-1.5 bg-maroon text-gold-pale px-3 py-1.5 rounded cursor-pointer font-bold">
+                      <Upload size={12} /> Change Photo
+                      <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                    </label>
+                    {(['maroon', 'saffron', 'temple', 'emerald'] as const).map(theme => (
+                      <button
+                        key={theme}
+                        type="button"
+                        onClick={() => setEditTheme(theme)}
+                        className={`px-2.5 py-1 rounded capitalize font-bold border ${
+                          editTheme === theme ? 'bg-maroon text-gold-pale border-maroon' : 'bg-white text-maroon border-gold/30'
+                        }`}
+                      >
+                        {theme}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-maroon mb-1">Display Name *</label>
+                <input type="text" required value={editName} onChange={e => setEditName(e.target.value)} className="w-full p-2 border border-gold/30 rounded bg-cream/20" />
+              </div>
+              <div>
+                <label className="block font-bold uppercase text-maroon mb-1">Telugu Name</label>
+                <input type="text" value={editNameTe} onChange={e => setEditNameTe(e.target.value)} className="w-full p-2 border border-gold/30 rounded bg-cream/20" />
+              </div>
+              <div>
+                <label className="block font-bold uppercase text-maroon mb-1">Professional Headline (LinkedIn Style)</label>
+                <input type="text" value={editHeadline} onChange={e => setEditHeadline(e.target.value)} placeholder="e.g. Vedic Scholar · Krishna Yajurveda & Griha Pravesh" className="w-full p-2 border border-gold/30 rounded bg-cream/20" />
+              </div>
+              <div>
+                <label className="block font-bold uppercase text-maroon mb-1">Vedic Sampradaya</label>
+                <input type="text" value={editSampradaya} onChange={e => setEditSampradaya(e.target.value)} placeholder="e.g. Krishna Yajurveda / Smartha" className="w-full p-2 border border-gold/30 rounded bg-cream/20" />
+              </div>
+              <div>
+                <label className="block font-bold uppercase text-maroon mb-1">Service City / Location</label>
+                <input type="text" value={editLocation} onChange={e => setEditLocation(e.target.value)} className="w-full p-2 border border-gold/30 rounded bg-cream/20" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-bold uppercase text-maroon mb-1">Experience (Yrs)</label>
+                  <input type="number" min={1} max={75} value={editExp} onChange={e => setEditExp(e.target.value)} className="w-full p-2 border border-gold/30 rounded bg-cream/20" />
+                </div>
+                <div>
+                  <label className="block font-bold uppercase text-maroon mb-1">Availability</label>
+                  <select value={editAvail} onChange={e => setEditAvail(e.target.value as any)} className="w-full p-2 border border-gold/30 rounded bg-white">
+                    <option value="now">Available Now</option>
+                    <option value="today">Today</option>
+                    <option value="scheduled">By Schedule</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block font-bold uppercase text-maroon mb-1">Languages (comma separated)</label>
+                <input type="text" value={editLanguages} onChange={e => setEditLanguages(e.target.value)} className="w-full p-2 border border-gold/30 rounded bg-cream/20" />
+              </div>
+              <div>
+                <label className="block font-bold uppercase text-maroon mb-1">Specializations / Rituals (comma separated)</label>
+                <input type="text" value={editSpecs} onChange={e => setEditSpecs(e.target.value)} className="w-full p-2 border border-gold/30 rounded bg-cream/20" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block font-bold uppercase text-maroon mb-1">About &amp; Vedic Standards Bio</label>
+                <textarea rows={3} value={editBio} onChange={e => setEditBio(e.target.value)} className="w-full p-2 border border-gold/30 rounded bg-cream/20 resize-none" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block font-bold uppercase text-maroon mb-1">Personal Blessing / Signature Tagline</label>
+                <input type="text" value={editTagline} onChange={e => setEditTagline(e.target.value)} placeholder="e.g. Performing every ritual with pure Vedic pronunciation and complete family guidance." className="w-full p-2 border border-gold/30 rounded bg-cream/20" />
+              </div>
+              <div className="md:col-span-2 flex items-center justify-end gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="inline-flex items-center gap-1.5 bg-maroon text-gold-pale px-6 py-2.5 rounded font-bold uppercase tracking-wider hover:bg-maroon-md disabled:opacity-60 shadow"
+                >
+                  <Save size={14} /> {savingProfile ? 'Saving to Cloud...' : 'Save & Publish Profile'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {user?.role === 'purohit' && !user?.kycVerified && (
           <div className="bg-amber-50 border border-amber-300 p-4 rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -277,7 +526,7 @@ export const PurohitDashboard: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => acceptBookingHandoff(hb.id, activePurohit)}
+                    onClick={() => activePurohit && acceptBookingHandoff(hb.id, activePurohit)}
                     className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-cinzel text-xs font-bold uppercase tracking-wider rounded-sm flex items-center justify-center gap-1.5 shadow transition-colors"
                   >
                     <UserCheck size={15} /> Accept Handoff &amp; Auto-Assign to Me

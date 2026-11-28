@@ -47,6 +47,30 @@ import { getApiBaseUrl } from './paymentService';
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
+export function getMainDomainActionSettings() {
+  const origin =
+    typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? window.location.origin
+      : 'https://gurupadukam.com';
+  return {
+    url: `${origin}/#/login`,
+    handleCodeInApp: false,
+  };
+}
+
+export type GoogleSignInOutcome =
+  | { status: 'authenticated'; user: User }
+  | {
+      status: 'needs_onboarding';
+      googleProfile: {
+        uid: string;
+        name: string;
+        email: string;
+        phone: string;
+        photoURL?: string;
+      };
+    };
+
 function mapFirebaseAuthError(err: any): Error {
   const code = err?.code || '';
   if (code) {
@@ -62,10 +86,16 @@ function mapFirebaseAuthError(err: any): Error {
       'This sign-in method is disabled in Firebase Console → Authentication → Sign-in method.'
     );
   }
-  if (code === 'auth/unauthorized-domain') {
+  if (code === 'auth/unauthorized-domain' || code === 'auth/unauthorized-continue-uri') {
     return new Error(
-      'This domain is not authorized in Firebase Console → Authentication → Settings → Authorized domains.'
+      'Main domain gurupadukam.com must be listed in Firebase Console → Authentication → Settings → Authorized domains.'
     );
+  }
+  if (code === 'auth/invalid-email') {
+    return new Error('Please enter a valid email address.');
+  }
+  if (code === 'auth/too-many-requests') {
+    return new Error('Too many attempts. Please wait a few minutes and try again.');
   }
   if (code === 'auth/email-already-in-use') {
     return new Error('An account with this email already exists. Please sign in instead.');
@@ -191,7 +221,7 @@ async function checkIsAdminSafe(uid: string): Promise<boolean> {
   }
 }
 
-async function buildOrMergeGoogleUser(fbUser: FirebaseAuthUser): Promise<User> {
+async function checkGoogleAccountStatus(fbUser: FirebaseAuthUser): Promise<GoogleSignInOutcome> {
   const uid = fbUser.uid;
   const providerProfile = fbUser.providerData?.[0];
   const googleName = fbUser.displayName || providerProfile?.displayName || '';
@@ -222,43 +252,47 @@ async function buildOrMergeGoogleUser(fbUser: FirebaseAuthUser): Promise<User> {
           profileImage: existing.profileImage || googlePhoto,
           role: isAdminUser ? 'admin' : existing.role === 'admin' ? 'user' : existing.role,
         };
-        await setDoc(userRef, merged, { merge: true }).catch(() => {});
-        return merged;
+        const hasRequired =
+          isAdminUser ||
+          (Boolean(merged.phone && merged.phone.replace(/\D/g, '').length >= 10) &&
+            Boolean(merged.address && merged.address.trim().length > 0) &&
+            Boolean(merged.acceptedRolePolicyAt));
+        if (hasRequired) {
+          await setDoc(userRef, merged, { merge: true }).catch(() => {});
+          return { status: 'authenticated', user: merged };
+        }
       }
 
-      const newUser: User = {
-        id: uid,
-        name: googleName || (googleEmail ? googleEmail.split('@')[0] : 'Devotee'),
-        email: googleEmail,
-        phone: googlePhone,
-        address: '',
-        city: '',
-        pincode: '',
-        role: isAdminUser ? 'admin' : 'user',
-        profileImage: googlePhoto,
-        createdAt: new Date().toISOString(),
-        notifications: { email: true, sms: true, push: true },
-      };
-      await setDoc(userRef, newUser, { merge: true }).catch(() => {});
-      return newUser;
+      if (isAdminUser) {
+        const adminUser: User = {
+          id: uid,
+          name: googleName || 'Guru Padukam Admin',
+          email: googleEmail,
+          phone: googlePhone,
+          address: 'Khammam HQ',
+          role: 'admin',
+          profileImage: googlePhoto,
+          createdAt: new Date().toISOString(),
+          notifications: { email: true, sms: true, push: true },
+        };
+        await setDoc(userRef, adminUser, { merge: true }).catch(() => {});
+        return { status: 'authenticated', user: adminUser };
+      }
     } catch (err: any) {
       if (err?.message?.includes('disabled')) throw err;
-      console.warn('[Firestore] Falling back to Firebase Auth profile for Google user:', err);
+      console.warn('[Firestore] Checking Google onboarding status:', err);
     }
   }
 
   return {
-    id: uid,
-    name: googleName || (googleEmail ? googleEmail.split('@')[0] : 'Devotee'),
-    email: googleEmail,
-    phone: googlePhone,
-    address: '',
-    city: '',
-    pincode: '',
-    role: isAdminUser ? 'admin' : 'user',
-    profileImage: googlePhoto,
-    createdAt: new Date().toISOString(),
-    notifications: { email: true, sms: true, push: true },
+    status: 'needs_onboarding',
+    googleProfile: {
+      uid,
+      name: googleName || (googleEmail ? googleEmail.split('@')[0] : ''),
+      email: googleEmail,
+      phone: googlePhone,
+      photoURL: googlePhoto,
+    },
   };
 }
 
@@ -266,7 +300,7 @@ export const firebaseMock = {
   isFirebaseConfigured,
 
   auth: {
-    async signInWithGoogle(): Promise<User> {
+    async signInWithGoogle(): Promise<GoogleSignInOutcome> {
       if (!isFirebaseConfigured || !auth || !db || !googleProvider) {
         throw new Error(
           'Google Sign-In requires Firebase configuration (VITE_FIREBASE_* env vars). Please sign in with Email & Password.'
@@ -274,7 +308,7 @@ export const firebaseMock = {
       }
       try {
         const cred = await signInWithPopup(auth, googleProvider);
-        return await buildOrMergeGoogleUser(cred.user);
+        return await checkGoogleAccountStatus(cred.user);
       } catch (err: any) {
         if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/operation-not-supported-in-this-environment') {
           await signInWithRedirect(auth, googleProvider);
@@ -284,15 +318,95 @@ export const firebaseMock = {
       }
     },
 
-    async handleGoogleRedirectResult(): Promise<User | null> {
+    async handleGoogleRedirectResult(): Promise<GoogleSignInOutcome | null> {
       if (!isFirebaseConfigured || !auth || !db) return null;
       try {
         const cred = await getRedirectResult(auth);
         if (!cred?.user) return null;
-        return await buildOrMergeGoogleUser(cred.user);
+        return await checkGoogleAccountStatus(cred.user);
       } catch {
         return null;
       }
+    },
+
+    async completeGoogleRegistration(uid: string, data: RegistrationData): Promise<User> {
+      if (!isFirebaseConfigured || !auth || !db) {
+        throw new Error('Firebase is not configured.');
+      }
+      const cleanPhone = data.phone.replace(/\D/g, '').slice(-10);
+      if (cleanPhone.length !== 10) {
+        throw new Error('Please enter a valid 10-digit mobile number.');
+      }
+      if (!data.address.trim()) {
+        throw new Error('Please enter your address.');
+      }
+      if (!data.acceptedRolePolicyAt) {
+        throw new Error('Please accept the registration policy & terms to continue.');
+      }
+      const safeRole: 'user' | 'purohit' = data.role === 'purohit' ? 'purohit' : 'user';
+      if (safeRole === 'purohit' && (!data.kycVerified || !data.kycRupeePaid)) {
+        throw new Error('Purohit registration requires ₹1 Witness KYC payment completion.');
+      }
+
+      const uploadedPhoto = await uploadDataUrlToStorage(
+        `profiles/${uid}/avatar_${Date.now()}.jpg`,
+        data.profileImage
+      );
+      const user: User = {
+        id: uid,
+        name: data.name.trim(),
+        email: data.email.trim().toLowerCase(),
+        phone: cleanPhone,
+        address: data.address.trim(),
+        city: data.city.trim(),
+        pincode: data.pincode.trim(),
+        role: safeRole,
+        preferredLanguage: data.preferredLanguage || 'en',
+        profileImage: uploadedPhoto,
+        kycVerified: data.kycVerified,
+        kycRupeePaid: data.kycRupeePaid,
+        kycCfOrderId: data.kycCfOrderId,
+        kycCfPaymentId: data.kycCfPaymentId,
+        kycVerifiedAt: data.kycVerifiedAt,
+        readyToShowVerification: data.readyToShowVerification,
+        vedicSampradaya: data.vedicSampradaya,
+        experienceYears: data.experienceYears,
+        acceptedRolePolicyAt: data.acceptedRolePolicyAt,
+        createdAt: new Date().toISOString(),
+        notifications: { email: true, sms: true, push: true },
+      };
+
+      await setDoc(doc(db, 'users', uid), user, { merge: true });
+
+      if (safeRole === 'purohit' && data.kycVerified) {
+        const purohitRecord: Purohit = {
+          id: `p_${uid}`,
+          userId: uid,
+          name: user.name,
+          nameTe: user.name,
+          headline: `${data.vedicSampradaya || 'Vedic Scholar'} · Certified on Guru Padukam`,
+          sampradaya: data.vedicSampradaya || 'Smarttha / Krishna Yajurveda',
+          coverTheme: 'maroon',
+          image: uploadedPhoto || '/logo.png',
+          phone: cleanPhone,
+          specializations: ['Ganapathi Homam', 'Satyanarayana Vratham', 'Griha Pravesh'],
+          experience: Number(data.experienceYears) || 5,
+          rating: 5.0,
+          reviews: 1,
+          availability: 'now',
+          languages: ['Telugu', 'English', 'Sanskrit'],
+          location: `${data.city.trim() || 'Khammam'} (${data.pincode.trim() || '507002'})`,
+          serviceAreas: [data.city.trim() || 'Khammam'],
+          verified: true,
+          aadhaarVerified: true,
+          kycRupeeVerified: Boolean(data.kycRupeePaid),
+          completedPoojas: 0,
+          bio: `${data.vedicSampradaya || 'Vedic Scholar'} · Verified Vedic Purohit offering punctual, authentic ceremonies with transparent direct Dakshina.`,
+        };
+        await setDoc(doc(db, 'purohits', purohitRecord.id), purohitRecord, { merge: true });
+      }
+
+      return user;
     },
 
     async register(data: RegistrationData): Promise<User> {
@@ -358,7 +472,7 @@ export const firebaseMock = {
         await setDoc(doc(db, 'users', uid), user).catch((err) => {
           console.warn('[Firestore] Could not save user doc during register:', err);
         });
-        await sendEmailVerification(cred.user).catch((err) => {
+        await sendEmailVerification(cred.user, getMainDomainActionSettings()).catch((err) => {
           console.warn('[Firebase Auth] Verification email dispatch skipped:', err?.message);
         });
 
@@ -561,7 +675,26 @@ export const firebaseMock = {
       if (!isFirebaseConfigured || !auth) {
         throw new Error('Password reset emails require Firebase Authentication to be configured.');
       }
-      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+      const cleanEmail = email.trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes('@')) {
+        throw new Error('Please enter a valid email address first.');
+      }
+      try {
+        await sendPasswordResetEmail(auth, cleanEmail, getMainDomainActionSettings());
+      } catch (err) {
+        throw mapFirebaseAuthError(err);
+      }
+    },
+
+    async resendVerificationEmail(): Promise<void> {
+      if (!isFirebaseConfigured || !auth?.currentUser) {
+        throw new Error('Please sign in first to resend your verification email.');
+      }
+      try {
+        await sendEmailVerification(auth.currentUser, getMainDomainActionSettings());
+      } catch (err) {
+        throw mapFirebaseAuthError(err);
+      }
     },
 
     async verifyCurrentSession(fbUser: FirebaseAuthUser): Promise<User | null> {
