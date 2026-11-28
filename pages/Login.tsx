@@ -10,8 +10,6 @@ import { CashfreeOrderResponse, createCashfreeTokenOrder } from '../services/pay
 import { CashfreeCheckoutModal } from '../components/CashfreeCheckoutModal';
 import { isFirebaseConfigured } from '../services/firebase';
 
-const API_BASE_URL = String((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
-
 export const Login: React.FC = () => {
   const {
     user,
@@ -39,12 +37,6 @@ export const Login: React.FC = () => {
   // Mandatory Registration Fields
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [emailOtpSent, setEmailOtpSent] = useState(false);
-  const [emailOtpCode, setEmailOtpCode] = useState('');
-  const [emailOtpToken, setEmailOtpToken] = useState('');
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
-  const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
   const [regPhone, setRegPhone] = useState('');
   const [regAddress, setRegAddress] = useState('');
   const [regCity, setRegCity] = useState('');
@@ -210,6 +202,7 @@ export const Login: React.FC = () => {
     }
   };
 
+<<<<<<< HEAD
   const handleSendEmailOtp = async () => {
     const cleanEmail = regEmail.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
@@ -270,16 +263,11 @@ export const Login: React.FC = () => {
     }
   };
 
+=======
+>>>>>>> 7ea5616 (Use Firebase SMTP email verification and block deleted accounts from signing back in)
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!emailVerified) {
-      addToast(
-        isTe ? 'దయచేసి ముందుగా మీ ఇమెయిల్‌ను OTP తో ధృవీకరించండి.' : 'Please verify your email address with the OTP before registering.',
-        'error'
-      );
-      return;
-    }
     if (role === 'admin') {
       addToast('Administrator accounts cannot be self-registered.', 'error');
       setRole('user');
@@ -576,71 +564,25 @@ export const Login: React.FC = () => {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-maroon">
-                    {isTe ? 'ఇమెయిల్ చిరునామా *' : 'Email Address *'}
-                  </label>
-                  {emailVerified ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-                      <CheckCircle2 size={11} /> {isTe ? 'ధృవీకరించబడింది' : 'Verified'}
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={sendingEmailOtp}
-                      onClick={handleSendEmailOtp}
-                      className="text-[11px] font-bold text-maroon bg-gold/20 hover:bg-gold/30 border border-gold/40 px-2 py-0.5 rounded transition-colors disabled:opacity-60"
-                    >
-                      {sendingEmailOtp
-                        ? (isTe ? 'పంపుతోంది…' : 'Sending…')
-                        : emailOtpSent
-                        ? (isTe ? 'మళ్లీ పంపండి' : 'Resend OTP')
-                        : (isTe ? 'ఇమెయిల్ ధృవీకరించండి' : 'Verify Email')}
-                    </button>
-                  )}
-                </div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
+                  {isTe ? 'ఇమెయిల్ చిరునామా *' : 'Email Address *'}
+                </label>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
                   <input
                     type="email"
                     required
                     value={regEmail}
-                    onChange={e => {
-                      setRegEmail(e.target.value);
-                      if (emailVerified) setEmailVerified(false);
-                      if (emailOtpSent) setEmailOtpSent(false);
-                    }}
+                    onChange={e => setRegEmail(e.target.value)}
                     placeholder={role === 'purohit' ? 'sharma.purohit@example.com' : 'devotee@example.com'}
                     className="w-full pl-9 pr-3 py-2.5 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                   />
                 </div>
-                {emailOtpSent && !emailVerified && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={emailOtpCode}
-                      onChange={e => setEmailOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleVerifyEmailOtp();
-                        }
-                      }}
-                      placeholder={isTe ? '6-అంకెల OTP' : '6-digit OTP'}
-                      className="flex-1 px-3 py-1.5 bg-white border border-gold/40 rounded text-xs font-mono focus:outline-none focus:border-maroon"
-                    />
-                    <button
-                      type="button"
-                      disabled={verifyingEmailOtp}
-                      onClick={handleVerifyEmailOtp}
-                      className="px-3 py-1.5 bg-maroon text-gold-pale text-xs font-bold rounded hover:bg-maroon-md disabled:opacity-60"
-                    >
-                      {verifyingEmailOtp ? '…' : (isTe ? 'నిర్ధారించండి' : 'Confirm OTP')}
-                    </button>
-                  </div>
-                )}
+                <p className="text-[10px] text-text-lt mt-1">
+                  {isTe
+                    ? 'నమోదు పూర్తయిన తర్వాత Firebase SMTP ద్వారా ధృవీకరణ ఇమెయిల్ పంపబడుతుంది.'
+                    : 'A verification email will be sent automatically via Firebase upon registration.'}
+                </p>
               </div>
             </div>
 

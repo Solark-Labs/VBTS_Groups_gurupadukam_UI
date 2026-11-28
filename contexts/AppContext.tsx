@@ -183,10 +183,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     });
     if (isFirebaseConfigured && auth) {
-      const unsub = onAuthStateChanged(auth, (fbUser) => {
-        if (fbUser) {
-          refreshCloudData();
+      const unsub = onAuthStateChanged(auth, async (fbUser) => {
+        if (!fbUser) {
+          setUser(null);
+          localStorage.removeItem('gp_user');
+          localStorage.removeItem('gp_auth_token');
+          return;
         }
+        const verifiedUser = await firebaseMock.auth.verifyCurrentSession(fbUser);
+        if (!verifiedUser) {
+          setUser(null);
+          localStorage.removeItem('gp_user');
+          localStorage.removeItem('gp_auth_token');
+          return;
+        }
+        setUser(verifiedUser);
+        localStorage.setItem('gp_user', JSON.stringify(verifiedUser));
+        refreshCloudData();
       });
       return () => unsub();
     }
