@@ -43,6 +43,7 @@ export const Navbar: React.FC = () => {
         setNotifOpen(false);
         setLangOpen(false);
         setServicesOpen(false);
+        setMobileMenuOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);

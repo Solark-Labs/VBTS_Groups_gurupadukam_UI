@@ -51,7 +51,9 @@ export const Home: React.FC = () => {
               </h1>
 
               <p className="font-telugu text-[clamp(0.95rem,1.6vw,1.2rem)] font-medium text-gold-lt/90 mb-3">
-                మీ పవిత్ర పూజా అవసరాలన్నింటికీ ఒకే వేదిక — గురు పాదుకం
+                {language === 'te'
+                  ? 'మీ పవిత్ర పూజా అవసరాలన్నింటికీ ఒకే వేదిక — గురు పాదుకం'
+                  : 'One sacred platform for all your Vedic rituals — Guru Padukam'}
               </p>
 
               <p className="text-[clamp(1rem,1.4vw,1.15rem)] text-cream/85 leading-relaxed max-w-2xl mb-6 font-normal">
@@ -308,7 +310,8 @@ export const Home: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
             <div>
               <div className="font-cinzel text-[0.65rem] tracking-[0.3em] uppercase text-maroon mb-2 flex items-center gap-2">
-                <Zap size={14} className="text-gold" /> Delivered in Minutes · Event Return Gifts
+                <Zap size={14} className="text-gold" />{' '}
+                {language === 'te' ? 'నిమిషాల్లో డెలివరీ · రిటర్న్ గిఫ్ట్స్' : 'Delivered in Minutes · Event Return Gifts'}
               </div>
               <h2 className="font-cinzel text-[clamp(1.8rem,4vw,2.6rem)] font-bold text-text-dk tracking-wide uppercase">{t('homeEssentialsTitle')}</h2>
               <p className="font-garamond text-lg text-text-md italic mt-1">{t('homeEssentialsSub')}</p>
@@ -330,7 +333,9 @@ export const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="text-center mb-12">
             <div className="font-cinzel text-[0.65rem] tracking-[0.3em] uppercase text-gold mb-2 flex items-center justify-center gap-3">
-              <span className="inline-block w-10 h-[1px] bg-gold" /> Complete Ritual Assistance <span className="inline-block w-10 h-[1px] bg-gold" />
+              <span className="inline-block w-10 h-[1px] bg-gold" />{' '}
+              {language === 'te' ? 'సంపూర్ణ పూజా సహాయం' : 'Complete Ritual Assistance'}{' '}
+              <span className="inline-block w-10 h-[1px] bg-gold" />
             </div>
             <h2 className="font-cinzel text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-cream tracking-wide uppercase">{t('homeRitualsTitle')}</h2>
             <p className="font-garamond text-lg text-cream/65 italic mt-2">
@@ -427,7 +432,9 @@ export const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <div className="font-cinzel text-[0.65rem] tracking-[0.3em] uppercase text-maroon mb-2 flex items-center justify-center gap-3">
-              <span className="inline-block w-10 h-[1px] bg-gold" /> Testimonials <span className="inline-block w-10 h-[1px] bg-gold" />
+              <span className="inline-block w-10 h-[1px] bg-gold" />{' '}
+              {language === 'te' ? 'భక్తుల అనుభవాలు' : 'Testimonials'}{' '}
+              <span className="inline-block w-10 h-[1px] bg-gold" />
             </div>
             <h2 className="font-cinzel text-[clamp(1.8rem,4vw,2.6rem)] font-bold text-text-dk tracking-wide uppercase">{t('homeTestimonialsTitle')}</h2>
           </div>

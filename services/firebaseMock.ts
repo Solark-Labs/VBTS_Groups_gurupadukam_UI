@@ -970,11 +970,8 @@ export const firebaseMock = {
     async getProducts(): Promise<Product[]> {
       const list = await readCollection<Product>('products', 'gp_fb_products');
       if (list.length > 0) return list;
-      if (!isFirebaseConfigured) {
-        localStorage.setItem('gp_fb_products', JSON.stringify(INITIAL_PRODUCTS));
-        return INITIAL_PRODUCTS;
-      }
-      return [];
+      localStorage.setItem('gp_fb_products', JSON.stringify(INITIAL_PRODUCTS));
+      return INITIAL_PRODUCTS;
     },
     async saveProducts(products: Product[]): Promise<void> {
       await syncCollectionList('products', 'gp_fb_products', products);
@@ -1020,11 +1017,8 @@ export const firebaseMock = {
     async getPurohits(): Promise<Purohit[]> {
       const list = await readCollection<Purohit>('purohits', 'gp_fb_purohits');
       if (list.length > 0) return list;
-      if (!isFirebaseConfigured) {
-        localStorage.setItem('gp_fb_purohits', JSON.stringify(PUROHITS));
-        return PUROHITS;
-      }
-      return [];
+      localStorage.setItem('gp_fb_purohits', JSON.stringify(PUROHITS));
+      return PUROHITS;
     },
     async savePurohits(purohits: Purohit[]): Promise<void> {
       await syncCollectionList('purohits', 'gp_fb_purohits', purohits);
@@ -1068,11 +1062,8 @@ export const firebaseMock = {
     async getAparaPeetas(): Promise<AparaPeeta[]> {
       const list = await readCollection<AparaPeeta>('aparaPeetas', 'gp_fb_apara_peetas');
       if (list.length > 0) return list;
-      if (!isFirebaseConfigured) {
-        localStorage.setItem('gp_fb_apara_peetas', JSON.stringify(APARA_PEETAS));
-        return APARA_PEETAS;
-      }
-      return [];
+      localStorage.setItem('gp_fb_apara_peetas', JSON.stringify(APARA_PEETAS));
+      return APARA_PEETAS;
     },
     async saveAparaPeetas(peetas: AparaPeeta[]): Promise<void> {
       await syncCollectionList('aparaPeetas', 'gp_fb_apara_peetas', peetas);
