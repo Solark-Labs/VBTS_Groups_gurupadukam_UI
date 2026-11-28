@@ -230,7 +230,7 @@ export const Login: React.FC = () => {
   };
 
   const handleForgotPassword = async () => {
-    const cleanEmail = (resetEmailInput || loginEmail).trim();
+    const cleanEmail = (resetEmailInput || loginEmail).trim().toLowerCase();
     if (!cleanEmail) {
       setShowResetBox(true);
       setResetError('Enter your registered email address below and click Send Reset Link.');
@@ -238,10 +238,20 @@ export const Login: React.FC = () => {
     }
     setSendingReset(true);
     setResetError(null);
+    setResetSentTo(null);
     try {
+      const accountCheck = await checkAccountExists(cleanEmail);
+      if (accountCheck.status === 'found' && accountCheck.authMethod === 'google') {
+        setShowResetBox(true);
+        setResetError('This account was created using Google Sign-In and does not use a password. Click "Continue with Google" below.');
+        return;
+      }
       await resetPassword(cleanEmail);
       setResetSentTo(cleanEmail);
       setShowResetBox(true);
+      if (accountCheck.status === 'not_found') {
+        setResetError('Note: No Guru Padukam account profile was found for this email yet. If you recently signed up or need a new account, use Create Account.');
+      }
     } catch (err: any) {
       setResetSentTo(null);
       setShowResetBox(true);
@@ -293,16 +303,20 @@ export const Login: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (res.status === 503) {
-        // Backend SMTP is intentionally not set because user configured SMTP directly on Firebase Console
+      const contentType = res.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const data = isJson ? await res.json().catch(() => ({})) : {};
+
+      // Static hosts (e.g. Hostinger gurupadukam.com without Node /api) return 404 HTML,
+      // and API servers without SMTP_* env return 503 because SMTP is configured in Firebase Console.
+      if (res.status === 404 || res.status === 503 || !isJson) {
         setUseFirebaseLinkVerify(true);
         setEmailOtpSent(false);
-        setEmailOtpMsg(
-          isTe
-            ? 'SMTP Firebase లో సెట్ చేయబడింది — నమోదు పూర్తి చేసిన వెంటనే మీ ఇమెయిల్‌కు ధృవీకరణ లింక్ పంపబడుతుంది.'
-            : 'Using Firebase Console SMTP — submit registration below and Firebase will send your verification link right away.'
-        );
+        const infoMsg = isTe
+          ? 'Firebase Console SMTP యాక్టివ్‌గా ఉంది — కింద నమోదు పూర్తి చేసిన వెంటనే మీ ఇమెయిల్‌కు ధృవీకరణ లింక్ పంపబడుతుంది.'
+          : 'Firebase Console SMTP is active — complete registration below and Firebase will send a verification link to your email (check Inbox/Spam).';
+        setEmailOtpMsg(infoMsg);
+        addToast(infoMsg, 'info');
         return;
       }
       if (!res.ok || !data.success) {
@@ -316,6 +330,17 @@ export const Login: React.FC = () => {
         'success'
       );
     } catch (err: any) {
+      // Network/CORS error when calling /api on static hosting -> fall back gracefully to Firebase SMTP link
+      if (err instanceof TypeError) {
+        setUseFirebaseLinkVerify(true);
+        setEmailOtpSent(false);
+        const infoMsg = isTe
+          ? 'Firebase Console SMTP ద్వారా ధృవీకరణ లింక్ పంపబడుతుంది — కింద నమోదు పూర్తి చేయండి.'
+          : 'Firebase Console SMTP will send your verification link after registration below.';
+        setEmailOtpMsg(infoMsg);
+        addToast(infoMsg, 'info');
+        return;
+      }
       const msg = err?.message || 'Could not send email OTP.';
       setEmailOtpMsg(msg);
       addToast(msg, 'error');
@@ -435,10 +460,10 @@ export const Login: React.FC = () => {
         : await register(payload);
 
       setGoogleOnboarding(null);
-      if (googleOnboarding || registeredUser.role === 'purohit' || !isFirebaseConfigured) {
+      if (googleOnboarding || emailVerified || !isFirebaseConfigured) {
         navigate(registeredUser.role === 'purohit' ? '/purohit-dashboard' : '/');
       } else {
-        // Stay on /login so user sees the Verify Email card & Verify button right after Firebase registration
+        // Stay on /login so Devotee or Purohit sees the Verify Email card & Verify button right after Firebase registration
         addToast('Registration complete! Check Inbox/Spam for your Firebase verification link, then click Verify.', 'success');
       }
     } catch (err: any) {
