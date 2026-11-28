@@ -225,7 +225,10 @@ export const Login: React.FC = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Could not send verification email.');
+        throw new Error(
+          data.message ||
+            `Could not send verification email (HTTP ${res.status}${!API_BASE_URL ? ' — VITE_API_BASE_URL not set' : ''}).`
+        );
       }
       if (data.otpToken) setEmailOtpToken(data.otpToken);
       setEmailOtpSent(true);

@@ -37,11 +37,17 @@ app.use((req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 
-  const corsOrigin = process.env.CORS_ORIGIN;
-  if (corsOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', corsOrigin);
-  } else if (req.headers.origin && !process.env.VERCEL) {
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+  const allowedOrigins = new Set([
+    'https://gurupadukam.com',
+    'https://www.gurupadukam.com',
+    ...(process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean)
+      : []),
+  ]);
+  const reqOrigin = req.headers.origin;
+  if (reqOrigin && (allowedOrigins.has(reqOrigin) || !process.env.VERCEL)) {
+    res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+    res.setHeader('Vary', 'Origin');
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-app-proxy');
