@@ -652,18 +652,24 @@ export const Profile: React.FC = () => {
               <div className="space-y-6 animate-slide-up">
                 <div className="border-b border-gold/20 pb-3">
                   <h2 className="font-cinzel text-xl font-bold text-maroon flex items-center gap-2">
-                    <XCircle size={20} className="text-red-600" /> Cancelled &amp; Purohit-Declined Bookings
+                    <XCircle size={20} className="text-red-600" /> {isTe ? 'రద్దు చేసిన & పురోహితులు నిరాకరించిన బుకింగ్‌లు' : 'Cancelled & Purohit-Declined Bookings'}
                   </h2>
                   <p className="text-xs text-text-md mt-1">
-                    If a Purohit cancels prior to your ritual, you see their exact reason, your ₹11 goes straight to your Wallet, and you can either choose the next available Purohit or contact Guru Padukam directly.
+                    {isTe
+                      ? 'పురోహితుడు రద్దు చేస్తే వారి కారణం ఇక్కడ కనిపిస్తుంది, ₹11 నేరుగా మీ వాలెట్‌లో చేరుతుంది, మరియు మీరు మరో పురోహితుడిని వెంటనే బుక్ చేయవచ్చు.'
+                      : 'If a Purohit cancels prior to your ritual, you see their exact reason, your ₹11 goes straight to your Wallet, and you can either choose the next available Purohit or contact Guru Padukam directly.'}
                   </p>
                 </div>
 
                 {cancelledCount === 0 ? (
                   <div className="text-center py-12 bg-cream/40 border border-gold/20 rounded-lg space-y-2">
                     <CheckCircle2 size={34} className="mx-auto text-green-600" />
-                    <div className="font-cinzel text-sm font-bold text-maroon">No Cancelled or Declined Bookings</div>
-                    <p className="text-xs text-text-md">All your ceremonial slots are running smoothly!</p>
+                    <div className="font-cinzel text-sm font-bold text-maroon">
+                      {isTe ? 'రద్దు చేసిన లేదా నిరాకరించిన బుకింగ్‌లు లేవు' : 'No Cancelled or Declined Bookings'}
+                    </div>
+                    <p className="text-xs text-text-md">
+                      {isTe ? 'మీ పూజా సమయాలన్నీ సజావుగా సాగుతున్నాయి!' : 'All your ceremonial slots are running smoothly!'}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -746,10 +752,12 @@ export const Profile: React.FC = () => {
               <div className="space-y-6 animate-slide-up">
                 <div className="border-b border-gold/20 pb-3">
                   <h2 className="font-cinzel text-xl font-bold text-maroon flex items-center gap-2">
-                    <Wallet size={20} className="text-gold-dk" /> Guru Padukam Wallet &amp; Refunds Ledger
+                    <Wallet size={20} className="text-gold-dk" /> {isTe ? 'గురు పాదుకం వాలెట్ & వాపసు వివరాలు' : 'Guru Padukam Wallet & Refunds Ledger'}
                   </h2>
                   <p className="text-xs text-text-md mt-1">
-                    Verified ₹11 credits from Purohit schedule declines and reuse history (per our No Cash Refund / Zero-Loss Wallet Policy).
+                    {isTe
+                      ? 'పురోహితుడు రద్దు చేసినప్పుడు వాలెట్‌లో చేరిన ₹11 క్రెడిట్లు మరియు వినియోగ వివరాలు.'
+                      : 'Verified ₹11 credits from Purohit schedule declines and reuse history (per our No Cash Refund / Zero-Loss Wallet Policy).'}
                   </p>
                 </div>
 
@@ -757,22 +765,24 @@ export const Profile: React.FC = () => {
                 <div className="bg-gradient-to-r from-maroon-dk via-maroon to-maroon-dk text-cream p-6 rounded-lg shadow flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
                     <div className="text-[11px] uppercase tracking-widest text-gold-lt font-bold">
-                      Available Devotee Wallet Balance
+                      {isTe ? 'అందుబాటులో ఉన్న భక్తుల వాలెట్ బ్యాలెన్స్' : 'Available Devotee Wallet Balance'}
                     </div>
                     <div className="font-cinzelDeco text-4xl font-bold text-gold mt-1">
                       ₹{walletBalance}
                     </div>
                     <p className="text-xs text-cream/80 mt-1">
                       {walletBalance >= 11
-                        ? 'Ready to book your next Purohit without paying Cashfree again!'
-                        : 'Any ₹11 credited when a Purohit declines appears instantly here.'}
+                        ? (isTe ? 'మళ్లీ చెల్లించకుండా తదుపరి పురోహితుడిని బుక్ చేయడానికి సిద్ధంగా ఉంది!' : 'Ready to book your next Purohit without paying Cashfree again!')
+                        : (isTe ? 'పురోహితుడు రద్దు చేస్తే ₹11 వెంటనే ఇక్కడ కనిపిస్తుంది.' : 'Any ₹11 credited when a Purohit declines appears instantly here.')}
                     </p>
                   </div>
                   <Link
                     to="/purohits"
                     className="px-5 py-2.5 bg-gold text-maroon-dk font-cinzel text-xs font-bold uppercase tracking-wider rounded shadow hover:bg-gold-lt transition-colors shrink-0"
                   >
-                    {walletBalance >= 11 ? 'Use ₹11 Wallet Now →' : 'Browse Purohits'}
+                    {walletBalance >= 11
+                      ? (isTe ? 'ఇప్పుడే ₹11 వాలెట్ వాడండి →' : 'Use ₹11 Wallet Now →')
+                      : (isTe ? 'పురోహితులను చూడండి' : 'Browse Purohits')}
                   </Link>
                 </div>
 
@@ -1042,7 +1052,9 @@ export const Profile: React.FC = () => {
             {/* Notifications */}
             {activeTab === 'notifications' && (
               <form onSubmit={handleSaveNotifications} className="space-y-6 animate-slide-up">
-                <h2 className="font-cinzel text-xl font-bold text-maroon border-b border-gold/20 pb-3">Notification Preferences</h2>
+                <h2 className="font-cinzel text-xl font-bold text-maroon border-b border-gold/20 pb-3">
+                  {isTe ? 'నోటిఫికేషన్ ప్రాధాన్యతలు' : 'Notification Preferences'}
+                </h2>
 
                 <div className="space-y-4">
                   <label className="flex items-center gap-4 cursor-pointer p-4 border border-gold/20 hover:bg-cream/30 transition-colors rounded">
@@ -1053,8 +1065,12 @@ export const Profile: React.FC = () => {
                       className="w-5 h-5 accent-maroon"
                     />
                     <div>
-                      <div className="font-cinzel font-bold text-maroon">Email Notifications</div>
-                      <div className="text-sm text-text-md">Receive order updates and exclusive offers via email.</div>
+                      <div className="font-cinzel font-bold text-maroon">
+                        {isTe ? 'ఇమెయిల్ నోటిఫికేషన్లు' : 'Email Notifications'}
+                      </div>
+                      <div className="text-sm text-text-md">
+                        {isTe ? 'ఆర్డర్ మరియు బుకింగ్ అప్‌డేట్‌లను ఇమెయిల్ ద్వారా పొందండి.' : 'Receive order updates and exclusive offers via email.'}
+                      </div>
                     </div>
                   </label>
 
@@ -1066,8 +1082,12 @@ export const Profile: React.FC = () => {
                       className="w-5 h-5 accent-maroon"
                     />
                     <div>
-                      <div className="font-cinzel font-bold text-maroon">SMS &amp; WhatsApp Notifications</div>
-                      <div className="text-sm text-text-md">Get real-time Purohit arrival and delivery tracking updates on your phone.</div>
+                      <div className="font-cinzel font-bold text-maroon">
+                        {isTe ? 'SMS & వాట్సాప్ నోటిఫికేషన్లు' : 'SMS & WhatsApp Notifications'}
+                      </div>
+                      <div className="text-sm text-text-md">
+                        {isTe ? 'పురోహిత రాక మరియు డెలివరీ ట్రాకింగ్ అప్‌డేట్‌లను ఫోన్‌లో పొందండి.' : 'Get real-time Purohit arrival and delivery tracking updates on your phone.'}
+                      </div>
                     </div>
                   </label>
 
