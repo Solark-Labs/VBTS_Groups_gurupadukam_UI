@@ -27,6 +27,7 @@ import {
   storage,
   googleProvider,
   isFirebaseConfigured,
+  firebaseProjectDebug,
 } from './firebase';
 import {
   User,
@@ -52,7 +53,7 @@ function mapFirebaseAuthError(err: any): Error {
   }
   if (code === 'auth/configuration-not-found') {
     return new Error(
-      'Firebase Authentication is not enabled yet. In Firebase Console → Authentication → click "Get Started" and enable Email/Password & Google Sign-In.'
+      `Firebase Auth not initialized for project "${firebaseProjectDebug.projectId}" (${firebaseProjectDebug.authDomain}). In Firebase Console → Authentication → Sign-in method: enable Email/Password and toggle Google OFF → Save → ON (with support email) → Save.`
     );
   }
   if (code === 'auth/operation-not-allowed') {

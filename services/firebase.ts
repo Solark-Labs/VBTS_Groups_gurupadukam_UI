@@ -7,7 +7,10 @@ import { getMessaging, isSupported, Messaging } from 'firebase/messaging';
 const env = (import.meta as any).env || {};
 
 const cleanEnv = (val: unknown) =>
-  String(val || '').trim().replace(/^["']|["']$/g, '');
+  String(val || '')
+    .trim()
+    .replace(/^[\s"']+|[\s"',]+$/g, '')
+    .trim();
 
 const firebaseConfig = {
   apiKey: cleanEnv(env.VITE_FIREBASE_API_KEY),
@@ -17,6 +20,11 @@ const firebaseConfig = {
   messagingSenderId: cleanEnv(env.VITE_FIREBASE_MESSAGING_SENDER_ID),
   appId: cleanEnv(env.VITE_FIREBASE_APP_ID),
   measurementId: cleanEnv(env.VITE_FIREBASE_MEASUREMENT_ID),
+};
+
+export const firebaseProjectDebug = {
+  projectId: firebaseConfig.projectId || '(missing)',
+  authDomain: firebaseConfig.authDomain || '(missing)',
 };
 
 export const isFirebaseConfigured = Boolean(
