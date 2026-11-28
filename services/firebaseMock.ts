@@ -202,7 +202,6 @@ async function buildOrMergeGoogleUser(fbUser: FirebaseAuthUser): Promise<User> {
 
   const isAdminUser = await checkIsAdminSafe(uid);
 
-<<<<<<< HEAD
   if (db) {
     try {
       const userRef = doc(db, 'users', uid);
@@ -210,6 +209,10 @@ async function buildOrMergeGoogleUser(fbUser: FirebaseAuthUser): Promise<User> {
 
       if (userSnap.exists()) {
         const existing = userSnap.data() as User;
+        if ((existing as any).disabled && auth) {
+          await signOut(auth);
+          throw new Error('This account has been disabled by an administrator.');
+        }
         const merged: User = {
           ...existing,
           id: uid,
@@ -238,28 +241,10 @@ async function buildOrMergeGoogleUser(fbUser: FirebaseAuthUser): Promise<User> {
       };
       await setDoc(userRef, newUser, { merge: true }).catch(() => {});
       return newUser;
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.message?.includes('disabled')) throw err;
       console.warn('[Firestore] Falling back to Firebase Auth profile for Google user:', err);
     }
-=======
-  if (userSnap.exists()) {
-    const existing = userSnap.data() as User;
-    if ((existing as any).disabled && auth) {
-      await signOut(auth);
-      throw new Error('This account has been disabled by an administrator.');
-    }
-    const merged: User = {
-      ...existing,
-      id: uid,
-      name: existing.name || googleName || (googleEmail ? googleEmail.split('@')[0] : 'Devotee'),
-      email: existing.email || googleEmail,
-      phone: existing.phone || googlePhone,
-      profileImage: existing.profileImage || googlePhoto,
-      role: adminSnap.exists() ? 'admin' : existing.role === 'admin' ? 'user' : existing.role,
-    };
-    await setDoc(userRef, merged, { merge: true });
-    return merged;
->>>>>>> 7ea5616 (Use Firebase SMTP email verification and block deleted accounts from signing back in)
   }
 
   return {
@@ -370,14 +355,11 @@ export const firebaseMock = {
           notifications: { email: true, sms: true, push: true },
         };
 
-<<<<<<< HEAD
         await setDoc(doc(db, 'users', uid), user).catch((err) => {
           console.warn('[Firestore] Could not save user doc during register:', err);
-=======
-        await setDoc(doc(db, 'users', uid), user);
+        });
         await sendEmailVerification(cred.user).catch((err) => {
           console.warn('[Firebase Auth] Verification email dispatch skipped:', err?.message);
->>>>>>> 7ea5616 (Use Firebase SMTP email verification and block deleted accounts from signing back in)
         });
 
         if (safeRole === 'purohit' && data.kycVerified) {
@@ -473,36 +455,7 @@ export const firebaseMock = {
           throw mapFirebaseAuthError(err);
         }
         const uid = cred.user.uid;
-<<<<<<< HEAD
         const isAdminUser = await checkIsAdminSafe(uid);
-        try {
-          const userSnap = await getDoc(doc(db, 'users', uid));
-          if (userSnap.exists()) {
-            const data = userSnap.data() as User;
-            return {
-              ...data,
-              id: uid,
-              role: isAdminUser ? 'admin' : data.role === 'admin' ? 'user' : data.role,
-            };
-          }
-        } catch (err) {
-          console.warn('[Firestore] Could not read users/{uid}, using Auth profile:', err);
-        }
-
-        const fallbackUser: User = {
-          id: uid,
-          name: cred.user.displayName || normalizedEmail.split('@')[0],
-          email: normalizedEmail,
-          phone: '',
-          address: '',
-          role: isAdminUser ? 'admin' : 'user',
-          createdAt: new Date().toISOString(),
-          notifications: { email: true, sms: true, push: true },
-        };
-        await setDoc(doc(db, 'users', uid), fallbackUser, { merge: true }).catch(() => {});
-        return fallbackUser;
-=======
-        const adminSnap = await getDoc(doc(db, 'admins', uid));
         const userSnap = await getDoc(doc(db, 'users', uid));
 
         if (userSnap.exists()) {
@@ -514,12 +467,11 @@ export const firebaseMock = {
           return {
             ...data,
             id: uid,
-            // Admin role ONLY comes from Firestore `admins/{uid}` document
-            role: adminSnap.exists() ? 'admin' : data.role === 'admin' ? 'user' : data.role,
+            role: isAdminUser ? 'admin' : data.role === 'admin' ? 'user' : data.role,
           };
         }
 
-        if (adminSnap.exists()) {
+        if (isAdminUser) {
           return {
             id: uid,
             name: cred.user.displayName || 'Guru Padukam Admin',
@@ -535,7 +487,6 @@ export const firebaseMock = {
         // Do NOT recreate deleted user documents when Firestore profile was removed
         await signOut(auth);
         throw new Error('Account data was removed or does not exist. Please register again.');
->>>>>>> 7ea5616 (Use Firebase SMTP email verification and block deleted accounts from signing back in)
       }
 
       // Local fallback with real password verification (NO auto-create, NO email.includes('admin'))

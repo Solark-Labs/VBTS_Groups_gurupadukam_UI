@@ -202,69 +202,6 @@ export const Login: React.FC = () => {
     }
   };
 
-<<<<<<< HEAD
-  const handleSendEmailOtp = async () => {
-    const cleanEmail = regEmail.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      addToast(isTe ? 'దయచేసి సరైన ఇమెయిల్ చిరునామా నమోదు చేయండి.' : 'Please enter a valid email address first.', 'error');
-      return;
-    }
-    setSendingEmailOtp(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/email/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error(
-          data.message ||
-            `Could not send verification email (HTTP ${res.status}${!API_BASE_URL ? ' — VITE_API_BASE_URL not set' : ''}).`
-        );
-      }
-      if (data.otpToken) setEmailOtpToken(data.otpToken);
-      setEmailOtpSent(true);
-      addToast(
-        isTe ? 'మీ ఇమెయిల్‌కు 6-అంకెల ధృవీకరణ కోడ్ పంపబడింది.' : '6-digit verification code sent to your email.',
-        'success'
-      );
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to send verification email.', 'error');
-    } finally {
-      setSendingEmailOtp(false);
-    }
-  };
-
-  const handleVerifyEmailOtp = async () => {
-    const cleanEmail = regEmail.trim().toLowerCase();
-    if (emailOtpCode.trim().length !== 6) {
-      addToast(isTe ? '6-అంకెల కోడ్ నమోదు చేయండి.' : 'Enter the 6-digit verification code.', 'error');
-      return;
-    }
-    setVerifyingEmailOtp(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/email/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, code: emailOtpCode.trim(), otpToken: emailOtpToken }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.verified) {
-        throw new Error(data.message || 'Invalid verification code.');
-      }
-      setEmailVerified(true);
-      setEmailOtpSent(false);
-      addToast(isTe ? 'ఇమెయిల్ విజయవంతంగా ధృవీకరించబడింది!' : 'Email verified successfully!', 'success');
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Email verification failed.', 'error');
-    } finally {
-      setVerifyingEmailOtp(false);
-    }
-  };
-
-=======
->>>>>>> 7ea5616 (Use Firebase SMTP email verification and block deleted accounts from signing back in)
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
