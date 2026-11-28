@@ -8,6 +8,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { PAN_INDIA_LANGUAGES, LanguageCode } from '../i18n/languages';
 import { CashfreeOrderResponse, createCashfreeTokenOrder } from '../services/paymentService';
 import { CashfreeCheckoutModal } from '../components/CashfreeCheckoutModal';
+import { isFirebaseConfigured } from '../services/firebase';
 
 const API_BASE_URL = String((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
@@ -902,7 +903,7 @@ export const Login: React.FC = () => {
                 : t('completeRegistration')}
             </button>
 
-            {role === 'user' && (
+            {role === 'user' && isFirebaseConfigured && (
               <button
                 type="button"
                 onClick={handleGoogleLogin}
@@ -979,7 +980,7 @@ export const Login: React.FC = () => {
                 : `Sign In as ${role === 'purohit' ? 'Purohit Partner' : 'Devotee'}`}
             </button>
 
-            {role !== 'admin' && (
+            {role !== 'admin' && isFirebaseConfigured && (
               <button
                 type="button"
                 onClick={handleGoogleLogin}
