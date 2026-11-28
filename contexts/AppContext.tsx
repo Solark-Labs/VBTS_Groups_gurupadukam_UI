@@ -4,7 +4,8 @@ import {
   GeoLocation, AparaPeeta, AparaBooking, AparaReview, SupportTicket, EventNotification, RegistrationData
 } from '../types';
 import { firebaseMock } from '../services/firebaseMock';
-import { getFirebaseMessagingInstance, isFirebaseConfigured } from '../services/firebase';
+import { auth, getFirebaseMessagingInstance, isFirebaseConfigured } from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { getToken, onMessage } from 'firebase/messaging';
 import {
   syncBookingCreateToBackend,
@@ -181,6 +182,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addToast(`Welcome, ${redirectUser.name}!`, 'success');
       }
     });
+    if (isFirebaseConfigured && auth) {
+      const unsub = onAuthStateChanged(auth, (fbUser) => {
+        if (fbUser) {
+          refreshCloudData();
+        }
+      });
+      return () => unsub();
+    }
+    return undefined;
   }, [refreshCloudData]);
 
   // Sync Cart

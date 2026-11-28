@@ -109,11 +109,25 @@ export async function uploadDataUrlToStorage(
   }
 }
 
+const PRIVATE_COLLECTIONS = new Set([
+  'orders',
+  'bookings',
+  'aparaBookings',
+  'tickets',
+  'notifications',
+  'users',
+  'wallets',
+]);
+
 async function readCollection<T extends { id: string }>(
   colName: string,
   lsKey: string
 ): Promise<T[]> {
   if (isFirebaseConfigured && db) {
+    if (PRIVATE_COLLECTIONS.has(colName) && !auth?.currentUser) {
+      const saved = localStorage.getItem(lsKey);
+      return saved ? JSON.parse(saved) : [];
+    }
     try {
       const snap = await getDocs(collection(db, colName));
       return snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
@@ -585,6 +599,10 @@ export const firebaseMock = {
 
     async getOrders(): Promise<Order[]> {
       if (isFirebaseConfigured && db) {
+        if (!auth?.currentUser) {
+          const saved = localStorage.getItem('gp_fb_orders');
+          return saved ? JSON.parse(saved) : [];
+        }
         try {
           const snap = await getDocs(query(collection(db, 'orders'), orderBy('date', 'desc')));
           return snap.docs.map((d) => ({ ...(d.data() as Order), id: d.id }));
