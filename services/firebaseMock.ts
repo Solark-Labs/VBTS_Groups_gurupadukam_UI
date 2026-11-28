@@ -180,10 +180,17 @@ async function syncCollectionList<T extends { id: string }>(
   }
 }
 
-async function buildOrMergeGoogleUser(fbUser: FirebaseAuthUser): Promise<User> {
-  if (!db) {
-    throw new Error('Firestore is not initialized.');
+async function checkIsAdminSafe(uid: string): Promise<boolean> {
+  if (!db) return false;
+  try {
+    const adminSnap = await getDoc(doc(db, 'admins', uid));
+    return adminSnap.exists();
+  } catch {
+    return false;
   }
+}
+
+async function buildOrMergeGoogleUser(fbUser: FirebaseAuthUser): Promise<User> {
   const uid = fbUser.uid;
   const providerProfile = fbUser.providerData?.[0];
   const googleName = fbUser.displayName || providerProfile?.displayName || '';
@@ -192,26 +199,49 @@ async function buildOrMergeGoogleUser(fbUser: FirebaseAuthUser): Promise<User> {
   const googlePhoneRaw = fbUser.phoneNumber || providerProfile?.phoneNumber || '';
   const googlePhone = googlePhoneRaw ? googlePhoneRaw.replace(/\D/g, '').slice(-10) : '';
 
-  const adminSnap = await getDoc(doc(db, 'admins', uid));
-  const userRef = doc(db, 'users', uid);
-  const userSnap = await getDoc(userRef);
+  const isAdminUser = await checkIsAdminSafe(uid);
 
-  if (userSnap.exists()) {
-    const existing = userSnap.data() as User;
-    const merged: User = {
-      ...existing,
-      id: uid,
-      name: existing.name || googleName || (googleEmail ? googleEmail.split('@')[0] : 'Devotee'),
-      email: existing.email || googleEmail,
-      phone: existing.phone || googlePhone,
-      profileImage: existing.profileImage || googlePhoto,
-      role: adminSnap.exists() ? 'admin' : existing.role === 'admin' ? 'user' : existing.role,
-    };
-    await setDoc(userRef, merged, { merge: true });
-    return merged;
+  if (db) {
+    try {
+      const userRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const existing = userSnap.data() as User;
+        const merged: User = {
+          ...existing,
+          id: uid,
+          name: existing.name || googleName || (googleEmail ? googleEmail.split('@')[0] : 'Devotee'),
+          email: existing.email || googleEmail,
+          phone: existing.phone || googlePhone,
+          profileImage: existing.profileImage || googlePhoto,
+          role: isAdminUser ? 'admin' : existing.role === 'admin' ? 'user' : existing.role,
+        };
+        await setDoc(userRef, merged, { merge: true }).catch(() => {});
+        return merged;
+      }
+
+      const newUser: User = {
+        id: uid,
+        name: googleName || (googleEmail ? googleEmail.split('@')[0] : 'Devotee'),
+        email: googleEmail,
+        phone: googlePhone,
+        address: '',
+        city: '',
+        pincode: '',
+        role: isAdminUser ? 'admin' : 'user',
+        profileImage: googlePhoto,
+        createdAt: new Date().toISOString(),
+        notifications: { email: true, sms: true, push: true },
+      };
+      await setDoc(userRef, newUser, { merge: true }).catch(() => {});
+      return newUser;
+    } catch (err) {
+      console.warn('[Firestore] Falling back to Firebase Auth profile for Google user:', err);
+    }
   }
 
-  const newUser: User = {
+  return {
     id: uid,
     name: googleName || (googleEmail ? googleEmail.split('@')[0] : 'Devotee'),
     email: googleEmail,
@@ -219,13 +249,11 @@ async function buildOrMergeGoogleUser(fbUser: FirebaseAuthUser): Promise<User> {
     address: '',
     city: '',
     pincode: '',
-    role: adminSnap.exists() ? 'admin' : 'user',
+    role: isAdminUser ? 'admin' : 'user',
     profileImage: googlePhoto,
     createdAt: new Date().toISOString(),
     notifications: { email: true, sms: true, push: true },
   };
-  await setDoc(userRef, newUser, { merge: true });
-  return newUser;
 }
 
 export const firebaseMock = {
@@ -416,17 +444,19 @@ export const firebaseMock = {
           throw mapFirebaseAuthError(err);
         }
         const uid = cred.user.uid;
-        const adminSnap = await getDoc(doc(db, 'admins', uid));
-        const userSnap = await getDoc(doc(db, 'users', uid));
-
-        if (userSnap.exists()) {
-          const data = userSnap.data() as User;
-          return {
-            ...data,
-            id: uid,
-            // Admin role ONLY comes from Firestore `admins/{uid}` document
-            role: adminSnap.exists() ? 'admin' : data.role === 'admin' ? 'user' : data.role,
-          };
+        const isAdminUser = await checkIsAdminSafe(uid);
+        try {
+          const userSnap = await getDoc(doc(db, 'users', uid));
+          if (userSnap.exists()) {
+            const data = userSnap.data() as User;
+            return {
+              ...data,
+              id: uid,
+              role: isAdminUser ? 'admin' : data.role === 'admin' ? 'user' : data.role,
+            };
+          }
+        } catch (err) {
+          console.warn('[Firestore] Could not read users/{uid}, using Auth profile:', err);
         }
 
         const fallbackUser: User = {
@@ -435,11 +465,11 @@ export const firebaseMock = {
           email: normalizedEmail,
           phone: '',
           address: '',
-          role: adminSnap.exists() ? 'admin' : 'user',
+          role: isAdminUser ? 'admin' : 'user',
           createdAt: new Date().toISOString(),
           notifications: { email: true, sms: true, push: true },
         };
-        await setDoc(doc(db, 'users', uid), fallbackUser, { merge: true });
+        await setDoc(doc(db, 'users', uid), fallbackUser, { merge: true }).catch(() => {});
         return fallbackUser;
       }
 
