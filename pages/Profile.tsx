@@ -348,7 +348,9 @@ export const Profile: React.FC = () => {
                       {profileImage ? t('changePhoto') : t('uploadPhoto')}
                     </div>
                     <p className="text-xs text-text-md mt-0.5">
-                      Upload a clear photo for your Guru Padukam devotee/purohit profile.
+                      {isTe
+                        ? 'మీ గురు పాదుకం ప్రొఫైల్ కోసం స్పష్టమైన ఫోటోను అప్‌లోడ్ చేయండి.'
+                        : 'Upload a clear photo for your Guru Padukam devotee/purohit profile.'}
                     </p>
                     <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-3">
                       <label className="cursor-pointer px-4 py-1.5 bg-maroon text-gold-pale text-xs font-bold uppercase tracking-wider rounded hover:bg-maroon-md transition-colors">
@@ -361,7 +363,7 @@ export const Profile: React.FC = () => {
                           onClick={handleRemovePhoto}
                           className="px-3 py-1.5 border border-red-300 text-red-700 text-xs font-bold rounded hover:bg-red-50 flex items-center gap-1"
                         >
-                          <X size={13} /> Remove
+                          <X size={13} /> {isTe ? 'తొలగించండి' : 'Remove'}
                         </button>
                       )}
                     </div>
