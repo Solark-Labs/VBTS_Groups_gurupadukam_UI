@@ -352,8 +352,8 @@ export const firebaseMock = {
       // Local fallback (when Firebase keys are not yet configured)
       await delay(300);
       const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
-      if (savedUsers[normalizedEmail]) {
-        throw new Error('An account with this email already exists. Please sign in instead.');
+      if (savedUsers[normalizedEmail] && savedUsers[normalizedEmail]._pwHash) {
+        throw new Error('An account with this email already exists. Please sign in or use Forgot Password.');
       }
 
       const passwordHash = await hashPassword(data.password);

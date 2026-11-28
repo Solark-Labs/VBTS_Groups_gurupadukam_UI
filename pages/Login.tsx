@@ -346,8 +346,11 @@ export const Login: React.FC = () => {
       });
 
       navigate(registeredUser.role === 'purohit' ? '/purohit-dashboard' : '/');
-    } catch {
-      // Toast already displayed; stay on registration form
+    } catch (err: any) {
+      if (String(err?.message || '').toLowerCase().includes('already')) {
+        setLoginEmail(regEmail.trim());
+        setMode('login');
+      }
     }
   };
 
