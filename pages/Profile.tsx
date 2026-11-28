@@ -80,6 +80,58 @@ export const Profile: React.FC = () => {
     }
   }, [user, navigate, language]);
 
+  const isTe = language === 'te';
+
+  const detectLocation = useCallback((silent = false) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      if (!silent) addToast(isTe ? 'ఈ బ్రౌజర్‌లో స్థానం గుర్తింపు అందుబాటులో లేదు.' : 'Location detection is not supported in this browser.', 'error');
+      return;
+    }
+    setIsDetectingLoc(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+          const addr = data?.address || {};
+          const detectedCity =
+            addr.city || addr.town || addr.village || addr.county || addr.state_district || '';
+          const detectedPin = String(addr.postcode || '').replace(/\D/g, '').slice(0, 6);
+          if (detectedCity) setCity(detectedCity);
+          if (detectedPin) setPincode(detectedPin);
+          if (!address && data?.display_name) {
+            setAddress(String(data.display_name).split(',').slice(0, 3).join(', ').trim());
+          }
+          if (!silent) {
+            addToast(
+              isTe ? 'మీ స్థానం & పిన్ కోడ్ గుర్తించబడ్డాయి!' : 'Location & PIN code detected!',
+              'success'
+            );
+          }
+        } catch {
+          if (!silent) addToast(isTe ? 'దయచేసి నగరం & పిన్ నమోదు చేయండి.' : 'Could not fetch address details. Please enter manually.', 'info');
+        } finally {
+          setIsDetectingLoc(false);
+        }
+      },
+      () => {
+        setIsDetectingLoc(false);
+        if (!silent) addToast(isTe ? 'స్థానం అనుమతి నిరాకరించబడింది.' : 'Location permission denied.', 'info');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, [addToast, address, isTe]);
+
+  useEffect(() => {
+    if (user && activeTab === 'address' && !locAutoAttempted && (!city || !pincode || !address)) {
+      setLocAutoAttempted(true);
+      detectLocation(true);
+    }
+  }, [user, activeTab, locAutoAttempted, city, pincode, address, detectLocation]);
+
   if (!user) return null;
 
   const cleanPhone = (user.phone || '').replace(/\D/g, '');
@@ -129,7 +181,12 @@ export const Profile: React.FC = () => {
 
   const handleSavePersonal = async (e: React.FormEvent) => {
     e.preventDefault();
-    await updateProfile({ name, phone, profileImage });
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned && !/^[6-9]\d{9}$/.test(cleaned)) {
+      addToast(isTe ? '6, 7, 8 లేదా 9తో మొదలయ్యే 10-అంకెల మొబైల్ నంబర్ నమోదు చేయండి.' : 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.', 'error');
+      return;
+    }
+    await updateProfile({ name, phone: cleaned, profileImage });
   };
 
   const handleSaveLanguage = async (langCode: LanguageCode) => {
@@ -165,58 +222,6 @@ export const Profile: React.FC = () => {
       setConfirmPassword('');
     }
   };
-
-  const isTe = language === 'te';
-
-  const detectLocation = useCallback((silent = false) => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      if (!silent) addToast(isTe ? 'ఈ బ్రౌజర్‌లో స్థానం గుర్తింపు అందుబాటులో లేదు.' : 'Location detection is not supported in this browser.', 'error');
-      return;
-    }
-    setIsDetectingLoc(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude, longitude } = pos.coords;
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await res.json();
-          const addr = data?.address || {};
-          const detectedCity =
-            addr.city || addr.town || addr.village || addr.county || addr.state_district || '';
-          const detectedPin = String(addr.postcode || '').replace(/\D/g, '').slice(0, 6);
-          if (detectedCity) setCity(detectedCity);
-          if (detectedPin) setPincode(detectedPin);
-          if (!address && data?.display_name) {
-            setAddress(String(data.display_name).split(',').slice(0, 3).join(', ').trim());
-          }
-          if (!silent) {
-            addToast(
-              isTe ? 'మీ స్థానం & పిన్ కోడ్ గుర్తించబడ్డాయి!' : 'Location & PIN code detected!',
-              'success'
-            );
-          }
-        } catch {
-          if (!silent) addToast(isTe ? 'దయచేసి నగరం & పిన్ నమోదు చేయండి.' : 'Could not fetch address details. Please enter manually.', 'info');
-        } finally {
-          setIsDetectingLoc(false);
-        }
-      },
-      () => {
-        setIsDetectingLoc(false);
-        if (!silent) addToast(isTe ? 'స్థానం అనుమతి నిరాకరించబడింది.' : 'Location permission denied.', 'info');
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
-  }, [addToast, address, isTe]);
-
-  useEffect(() => {
-    if (activeTab === 'address' && !locAutoAttempted && (!city || !pincode || !address)) {
-      setLocAutoAttempted(true);
-      detectLocation(true);
-    }
-  }, [activeTab, locAutoAttempted, city, pincode, address, detectLocation]);
 
   const currentLangMeta = getLanguageMeta(language);
 

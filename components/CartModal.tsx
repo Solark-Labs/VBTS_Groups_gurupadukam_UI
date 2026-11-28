@@ -19,11 +19,25 @@ export const CartModal: React.FC = () => {
   const [shippingName, setShippingName] = useState(user?.name || '');
   const [shippingPhone, setShippingPhone] = useState(user?.phone || '');
   const [shippingAddress, setShippingAddress] = useState(user?.address || '');
-  const [shippingCity, setShippingCity] = useState(user?.city || 'Khammam');
-  const [shippingPincode, setShippingPincode] = useState(user?.pincode || '507002');
+  const [shippingCity, setShippingCity] = useState(user?.city || '');
+  const [shippingPincode, setShippingPincode] = useState(user?.pincode || '');
   const [shippingLocation, setShippingLocation] = useState<GeoLocation>(() =>
     buildGeoLocation(17.2473, 80.1514, 'Khammam, Telangana')
   );
+
+  useEffect(() => {
+    if (!isCartOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCartOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isCartOpen, setCartOpen]);
 
   useEffect(() => {
     if (user) {
@@ -50,8 +64,8 @@ export const CartModal: React.FC = () => {
   const handleProceedToPayment = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = shippingPhone.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      addToast('Please enter a valid 10-digit delivery mobile number.', 'error');
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      addToast('Please enter a valid 10-digit Indian delivery mobile number starting with 6-9.', 'error');
       return;
     }
     if (!shippingAddress.trim()) {
