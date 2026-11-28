@@ -840,6 +840,18 @@ app.post('/api/auth/register', async (req, res) => {
   return res.json({ success: true, token, user: publicUser });
 });
 
+app.post('/api/auth/check-email', (req, res) => {
+  const normalizedEmail = sanitizeText(req.body?.email, 120).toLowerCase();
+  if (!normalizedEmail || !normalizedEmail.includes('@')) {
+    return res.status(400).json({ exists: false, message: 'Valid email is required.' });
+  }
+  const existing = userAccountStore.get(normalizedEmail);
+  return res.json({
+    exists: Boolean(existing),
+    role: existing?.role || null,
+  });
+});
+
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body || {};
   const normalizedEmail = sanitizeText(email, 120).toLowerCase();

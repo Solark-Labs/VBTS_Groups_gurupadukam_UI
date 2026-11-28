@@ -16,6 +16,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Minimal non-PII email existence directory for instant pre-password sign-in check
+    match /emailIndex/{emailKey} {
+      allow read: if true;
+      allow create, update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
     // Users: users can read/write their own profile, but CANNOT self-escalate to role == 'admin'
     match /users/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());

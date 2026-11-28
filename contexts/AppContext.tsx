@@ -32,6 +32,7 @@ interface AppContextType {
   resetPassword: (email: string) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   checkEmailVerificationStatus: () => Promise<boolean>;
+  checkAccountExists: (email: string) => Promise<{ status: 'found' | 'not_found' | 'unknown'; authMethod?: 'password' | 'google' }>;
   isEmailVerified: boolean;
   register: (data: RegistrationData) => Promise<User>;
   logout: () => void;
@@ -378,6 +379,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addToast('Email not verified yet — please click the verification link in your inbox or spam folder.', 'info');
     }
     return verified;
+  };
+
+  const checkAccountExists = async (email: string) => {
+    return firebaseMock.auth.checkAccountExists(email);
   };
 
   const register = async (data: RegistrationData): Promise<User> => {
@@ -1376,7 +1381,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       language, setLanguage, t,
-      user, login, adminLogin, signInWithGoogle, completeGoogleRegistration, resetPassword, resendVerificationEmail, checkEmailVerificationStatus, isEmailVerified, register, logout, updateProfile, changePassword, isAdmin, isAuthLoading, seedCatalogToFirestore,
+      user, login, adminLogin, signInWithGoogle, completeGoogleRegistration, resetPassword, resendVerificationEmail, checkEmailVerificationStatus, checkAccountExists, isEmailVerified, register, logout, updateProfile, changePassword, isAdmin, isAuthLoading, seedCatalogToFirestore,
       cart, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, isCartOpen, setCartOpen,
       products, updateProduct, addProduct, deleteProduct, orders, placeOrder, updateOrderStatus,
       walletBalance, walletTransactions, debitWalletForBooking,

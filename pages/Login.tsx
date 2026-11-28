@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../contexts/AppContext';
 import { PAN_INDIA_LANGUAGES, LanguageCode } from '../i18n/languages';
-import { CashfreeOrderResponse, createCashfreeTokenOrder } from '../services/paymentService';
+import { CashfreeOrderResponse, createCashfreeTokenOrder, getApiBaseUrl } from '../services/paymentService';
 import { CashfreeCheckoutModal } from '../components/CashfreeCheckoutModal';
 import { isFirebaseConfigured } from '../services/firebase';
 
@@ -21,6 +21,7 @@ export const Login: React.FC = () => {
     resetPassword,
     resendVerificationEmail,
     checkEmailVerificationStatus,
+    checkAccountExists,
     isEmailVerified,
     register,
     isAuthLoading,
@@ -69,6 +70,20 @@ export const Login: React.FC = () => {
   const [resetError, setResetError] = useState<string | null>(null);
   const [sendingReset, setSendingReset] = useState(false);
   const [sendingVerify, setSendingVerify] = useState(false);
+  // Email 6-digit OTP state for Registration
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [emailOtpToken, setEmailOtpToken] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
+  const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
+  const [emailOtpMsg, setEmailOtpMsg] = useState<string | null>(null);
+  // Pre-password Sign In Email Existence Check
+  const [loginEmailCheck, setLoginEmailCheck] = useState<{
+    email: string;
+    status: 'checking' | 'found' | 'not_found' | 'unknown';
+    authMethod?: 'password' | 'google';
+  } | null>(null);
 
   const isTe = language === 'te';
 
@@ -235,12 +250,113 @@ export const Login: React.FC = () => {
     }
   };
 
+  const runLoginEmailCheck = useCallback(
+    async (rawEmail: string) => {
+      const clean = rawEmail.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+        setLoginEmailCheck(null);
+        return;
+      }
+      setLoginEmailCheck({ email: clean, status: 'checking' });
+      const result = await checkAccountExists(clean);
+      setLoginEmailCheck({ email: clean, status: result.status, authMethod: result.authMethod });
+    },
+    [checkAccountExists]
+  );
+
+  useEffect(() => {
+    if (mode !== 'login') return;
+    const clean = loginEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      setLoginEmailCheck(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      runLoginEmailCheck(clean);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [loginEmail, mode, runLoginEmailCheck]);
+
+  const handleSendEmailOtp = async () => {
+    const cleanEmail = regEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      addToast(isTe ? 'దయచేసి సరైన ఇమెయిల్ చిరునామా నమోదు చేయండి.' : 'Please enter a valid email address first.', 'error');
+      return;
+    }
+    setSendingEmailOtp(true);
+    setEmailOtpMsg(null);
+    try {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/auth/email/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || `Could not send verification code (HTTP ${res.status}).`);
+      }
+      if (data.otpToken) setEmailOtpToken(data.otpToken);
+      setEmailOtpSent(true);
+      addToast(
+        isTe ? 'మీ ఇమెయిల్‌కు 6-అంకెల ధృవీకరణ కోడ్ పంపబడింది.' : '6-digit verification code sent to your email!',
+        'success'
+      );
+    } catch (err: any) {
+      const msg = err?.message || 'Could not send email OTP.';
+      setEmailOtpMsg(msg);
+      addToast(msg, 'error');
+    } finally {
+      setSendingEmailOtp(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    const cleanEmail = regEmail.trim().toLowerCase();
+    if (emailOtpCode.trim().length !== 6) {
+      addToast(isTe ? '6-అంకెల కోడ్ నమోదు చేయండి.' : 'Enter the 6-digit OTP code.', 'error');
+      return;
+    }
+    setVerifyingEmailOtp(true);
+    setEmailOtpMsg(null);
+    try {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/auth/email/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, code: emailOtpCode.trim(), otpToken: emailOtpToken }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.verified) {
+        throw new Error(data.message || 'Invalid verification code.');
+      }
+      setEmailVerified(true);
+      setEmailOtpSent(false);
+      addToast(isTe ? 'ఇమెయిల్ విజయవంతంగా ధృవీకరించబడింది!' : 'Email verified via OTP! ✓', 'success');
+    } catch (err: any) {
+      const msg = err?.message || 'OTP verification failed.';
+      setEmailOtpMsg(msg);
+      addToast(msg, 'error');
+    } finally {
+      setVerifyingEmailOtp(false);
+    }
+  };
+
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (role === 'admin') {
       addToast('Administrator accounts cannot be self-registered.', 'error');
       setRole('user');
+      return;
+    }
+    if (!googleOnboarding && !emailVerified) {
+      addToast(
+        isTe
+          ? 'దయచేసి ముందుగా "Verify Email" నొక్కి 6-అంకెల OTP తో మీ ఇమెయిల్‌ను ధృవీకరించండి.'
+          : 'Please click "Verify Email" and enter the 6-digit OTP code before registering.',
+        'error'
+      );
       return;
     }
     if (!googleOnboarding && (!regPassword || regPassword.length < 6)) {
@@ -576,9 +692,31 @@ export const Login: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-maroon mb-1">
-                  {isTe ? 'ఇమెయిల్ చిరునామా *' : 'Email Address *'}
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-maroon">
+                    {isTe ? 'ఇమెయిల్ చిరునామా *' : 'Email Address *'}
+                  </label>
+                  {!googleOnboarding && (
+                    emailVerified ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 border border-green-300 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 size={11} /> {isTe ? 'ధృవీకరించబడింది' : 'Verified'}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={sendingEmailOtp}
+                        onClick={handleSendEmailOtp}
+                        className="text-[11px] font-bold text-maroon bg-gold/25 hover:bg-gold/40 border border-gold/50 px-2.5 py-0.5 rounded transition-colors disabled:opacity-60"
+                      >
+                        {sendingEmailOtp
+                          ? (isTe ? 'పంపుతోంది…' : 'Sending OTP…')
+                          : emailOtpSent
+                          ? (isTe ? 'మళ్లీ పంపండి' : 'Resend OTP')
+                          : (isTe ? 'Verify Email (OTP)' : 'Verify Email')}
+                      </button>
+                    )
+                  )}
+                </div>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-lt" />
                   <input
@@ -586,13 +724,53 @@ export const Login: React.FC = () => {
                     required
                     readOnly={Boolean(googleOnboarding)}
                     value={regEmail}
-                    onChange={e => setRegEmail(e.target.value)}
+                    onChange={e => {
+                      setRegEmail(e.target.value);
+                      if (emailVerified) setEmailVerified(false);
+                      if (emailOtpSent) setEmailOtpSent(false);
+                      if (emailOtpMsg) setEmailOtpMsg(null);
+                    }}
                     placeholder={role === 'purohit' ? 'sharma.purohit@example.com' : 'devotee@example.com'}
                     className={`w-full pl-9 pr-3 py-2.5 border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon ${
                       googleOnboarding ? 'bg-green-50/70 font-medium' : 'bg-white'
                     }`}
                   />
                 </div>
+
+                {emailOtpSent && !emailVerified && !googleOnboarding && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={emailOtpCode}
+                      onChange={e => setEmailOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleVerifyEmailOtp();
+                        }
+                      }}
+                      placeholder={isTe ? '6-అంకెల OTP' : 'Enter 6-digit OTP'}
+                      className="flex-1 px-3 py-2 bg-white border border-gold/50 rounded text-xs font-mono tracking-widest focus:outline-none focus:border-maroon"
+                    />
+                    <button
+                      type="button"
+                      disabled={verifyingEmailOtp}
+                      onClick={handleVerifyEmailOtp}
+                      className="px-4 py-2 bg-maroon text-gold-pale text-xs font-bold rounded hover:bg-maroon-md disabled:opacity-60"
+                    >
+                      {verifyingEmailOtp ? 'Verifying…' : (isTe ? 'OTP నిర్ధారించండి' : 'Verify OTP')}
+                    </button>
+                  </div>
+                )}
+
+                {emailOtpMsg && (
+                  <div className="mt-1.5 text-[11px] bg-red-50 border border-red-200 text-red-900 rounded px-2.5 py-1.5">
+                    {emailOtpMsg}
+                  </div>
+                )}
+
                 {googleOnboarding ? (
                   <div className="mt-1 flex items-center justify-between text-[10px] text-green-800 font-semibold">
                     <span>✓ Verified via Google ({googleOnboarding.email})</span>
@@ -606,9 +784,11 @@ export const Login: React.FC = () => {
                   </div>
                 ) : (
                   <p className="text-[10px] text-text-lt mt-1">
-                    {isTe
-                      ? 'నమోదు పూర్తయిన తర్వాత Firebase SMTP ద్వారా ధృవీకరణ ఇమెయిల్ పంపబడుతుంది.'
-                      : 'A verification email will be sent automatically via Firebase (gurupadukam.com).'}
+                    {emailVerified
+                      ? 'Email verified via 6-digit OTP.'
+                      : isTe
+                      ? 'ఇమెయిల్ ధృవీకరించడానికి "Verify Email" నొక్కి 6-అంకెల కోడ్ నమోదు చేయండి.'
+                      : 'Click "Verify Email" to receive & verify a 6-digit OTP code (gurupadukam.com).'}
                   </p>
                 )}
               </div>
@@ -910,10 +1090,46 @@ export const Login: React.FC = () => {
                   required
                   value={loginEmail}
                   onChange={e => setLoginEmail(e.target.value)}
+                  onBlur={() => runLoginEmailCheck(loginEmail)}
                   placeholder={role === 'purohit' ? 'purohit@gurupadukam.com' : 'devotee@example.com'}
                   className="w-full pl-9 pr-3 py-2.5 bg-white border border-gold/40 text-text-dk rounded text-sm focus:outline-none focus:border-maroon"
                 />
               </div>
+              {loginEmailCheck && loginEmailCheck.email === loginEmail.trim().toLowerCase() && (
+                <div className="mt-2">
+                  {loginEmailCheck.status === 'checking' && (
+                    <span className="text-[11px] text-text-lt">Checking account…</span>
+                  )}
+                  {loginEmailCheck.status === 'found' && loginEmailCheck.authMethod === 'google' && (
+                    <div className="bg-blue-50 border border-blue-200 text-blue-900 rounded px-3 py-2 text-xs">
+                      This email uses <strong>Google Sign-In</strong>. Click <strong>Continue with Google</strong> below to log in.
+                    </div>
+                  )}
+                  {loginEmailCheck.status === 'found' && loginEmailCheck.authMethod !== 'google' && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700">
+                      <CheckCircle2 size={12} /> Registered account found — enter your password below.
+                    </span>
+                  )}
+                  {loginEmailCheck.status === 'not_found' && (
+                    <div className="bg-amber-50 border border-amber-300 text-amber-950 rounded px-3 py-2 text-xs flex flex-wrap items-center justify-between gap-2">
+                      <span>
+                        No account found for <strong>{loginEmailCheck.email}</strong>. Create an account first.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRegEmail(loginEmail.trim());
+                          setMode('register');
+                          if (role === 'admin') setRole('user');
+                        }}
+                        className="font-bold text-maroon underline shrink-0"
+                      >
+                        Create Account →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>

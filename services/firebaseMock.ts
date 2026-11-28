@@ -78,6 +78,28 @@ export function getMainDomainActionSettings() {
   };
 }
 
+function getEmailIndexId(email: string): string {
+  return encodeURIComponent(email.trim().toLowerCase());
+}
+
+async function writeEmailIndex(email: string, authMethod: 'password' | 'google'): Promise<void> {
+  if (!isFirebaseConfigured || !db) return;
+  const clean = email.trim().toLowerCase();
+  if (!clean) return;
+  await setDoc(
+    doc(db, 'emailIndex', getEmailIndexId(clean)),
+    { exists: true, authMethod, updatedAt: new Date().toISOString() },
+    { merge: true }
+  ).catch(() => {});
+}
+
+async function deleteEmailIndex(email: string): Promise<void> {
+  if (!isFirebaseConfigured || !db) return;
+  const clean = email.trim().toLowerCase();
+  if (!clean) return;
+  await deleteDoc(doc(db, 'emailIndex', getEmailIndexId(clean))).catch(() => {});
+}
+
 async function sendWithActionSettingsFallback(
   fnWithSettings: (settings: { url: string; handleCodeInApp: boolean }) => Promise<void>,
   fnDefault: () => Promise<void>
@@ -299,6 +321,7 @@ async function checkGoogleAccountStatus(fbUser: FirebaseAuthUser): Promise<Googl
             Boolean(merged.acceptedRolePolicyAt));
         if (hasRequired) {
           await setDoc(userRef, stripUndefined(merged), { merge: true }).catch(() => {});
+          await writeEmailIndex(merged.email, 'google');
           return { status: 'authenticated', user: merged };
         }
       }
@@ -417,6 +440,7 @@ export const firebaseMock = {
       };
 
       await setDoc(doc(db, 'users', uid), stripUndefined(user), { merge: true });
+      await writeEmailIndex(user.email, 'google');
 
       if (safeRole === 'purohit' && data.kycVerified) {
         const purohitRecord: Purohit = {
@@ -512,6 +536,7 @@ export const firebaseMock = {
         await setDoc(doc(db, 'users', uid), stripUndefined(user)).catch((err) => {
           console.warn('[Firestore] Could not save user doc during register:', err);
         });
+        await writeEmailIndex(user.email, 'password');
         await sendWithActionSettingsFallback(
           (settings) => sendEmailVerification(cred.user, settings),
           () => sendEmailVerification(cred.user)
@@ -623,6 +648,51 @@ export const firebaseMock = {
       }
     },
 
+    async checkAccountExists(email: string): Promise<{
+      status: 'found' | 'not_found' | 'unknown';
+      authMethod?: 'password' | 'google';
+    }> {
+      const cleanEmail = email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        return { status: 'unknown' };
+      }
+
+      if (isFirebaseConfigured && db) {
+        try {
+          const snap = await getDoc(doc(db, 'emailIndex', getEmailIndexId(cleanEmail)));
+          if (snap.exists()) {
+            const data = snap.data() as { authMethod?: 'password' | 'google' };
+            return { status: 'found', authMethod: data.authMethod || 'password' };
+          }
+          return { status: 'not_found' };
+        } catch {
+          // Rules may restrict unauthenticated read if not updated yet
+        }
+      }
+
+      const savedUsers = JSON.parse(localStorage.getItem('gp_fb_users') || '{}');
+      if (savedUsers[cleanEmail]) {
+        return { status: 'found', authMethod: 'password' };
+      }
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/auth/check-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return { status: data.exists ? 'found' : 'not_found', authMethod: 'password' };
+        }
+      } catch {
+        // Ignore network errors
+      }
+
+      return { status: 'not_found' };
+    },
+
     async login(email: string, password?: string): Promise<User> {
       const normalizedEmail = email.trim().toLowerCase();
       if (!normalizedEmail || !password) {
@@ -646,6 +716,7 @@ export const firebaseMock = {
             await signOut(auth);
             throw new Error('This account has been disabled by an administrator.');
           }
+          await writeEmailIndex(normalizedEmail, 'password');
           return {
             ...data,
             id: uid,
@@ -654,6 +725,7 @@ export const firebaseMock = {
         }
 
         if (isAdminUser) {
+          await writeEmailIndex(normalizedEmail, 'password');
           return {
             id: uid,
             name: cred.user.displayName || 'Guru Padukam Admin',
@@ -667,6 +739,7 @@ export const firebaseMock = {
         }
 
         // Do NOT recreate deleted user documents when Firestore profile was removed
+        await deleteEmailIndex(normalizedEmail);
         await signOut(auth);
         throw new Error('Account data was removed or does not exist. Please register again.');
       }

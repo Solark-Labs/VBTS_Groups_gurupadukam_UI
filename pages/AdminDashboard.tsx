@@ -114,7 +114,7 @@ export const AdminDashboard: React.FC = () => {
       price: newProduct.price || 0,
       origPrice: newProduct.origPrice || 0,
       discount: '',
-      image: newProduct.image || 'https://picsum.photos/600/600',
+      image: newProduct.image || '/logo.png',
       desc: newProduct.desc || '',
       category: newProduct.category as any,
       stock: newProduct.stock || 0
